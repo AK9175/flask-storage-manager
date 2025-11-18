@@ -1,0 +1,92 @@
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #7c3aed;
+            color: white;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .content {
+            background-color: #f9fafb;
+            padding: 20px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .button {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .footer {
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            color: #856404;
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Welcome to Storage Manager</h1>
+        </div>
+        
+        <div class="content">
+            <p>Hello,</p>
+            
+            <p>You have been invited to join the <strong>Storage Manager</strong> by <strong>{{ admin_email }}</strong>.</p>
+            
+            <p>To complete your sign-up and access your account, please click the button below:</p>
+            
+            <center>
+                <a href="{{ signup_link }}" class="button">Complete Sign-Up</a>
+            </center>
+            
+            <p>Or copy this link if the button doesn't work:</p>
+            <p style="word-break: break-all; background-color: #f0f0f0; padding: 10px; border-radius: 4px;">
+                {{ signup_link }}
+            </p>
+            
+            <div class="warning">
+                <strong>Important:</strong> This link will expire in 24 hours. If it expires, ask your administrator to resend the invitation.
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>This is an automated message. Please do not reply to this email.</p>
+            <p>&copy; {{ current_year }} Storage Manager. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

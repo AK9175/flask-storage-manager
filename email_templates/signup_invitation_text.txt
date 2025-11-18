@@ -1,0 +1,13 @@
+Subject: You've been invited to join the Storage Manager
+
+Hello,
+
+You have been invited to join the Storage Manager by {{ admin_email }}.
+
+To complete your sign-up, please click the link below:
+{{ signup_link }}
+
+This link will expire in 24 hours.
+
+Best regards,
+The Storage Manager Team

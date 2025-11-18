@@ -1,0 +1,140 @@
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Flask specific
+instance/
+flask_session/
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vim/
+.emacs.d/
+.atom/
+.sublime-project
+.sublime-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+Thumbs.db
+
+# # Terraform
+# terraform/
+# *.tfstate
+# *.tfstate.backup
+# *.tfvars
+# .terraform/
+# .terraform.lock.hcl
+# terraform.tfplan
+# terraform.tfplan.json
+
+# AWS
+.aws/
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Dependencies
+node_modules/
+.npm
+.yarn-integrity
+
+# Email files (temporary)
+emails/
+email_templates/*.backup
+
+# Session and cache files
+session_data/
+cache/
+tmp/
+temp/
+
+# Backup files
+*.bak
+*.backup
+*.tmp
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Security and credentials
+*.p12
+*.pfx
+*.crt
+*.csr
+*.key
+*.pub
+credentials.json
+service-account.json
+config.ini
+
+# Application specific
+uploads/
+downloads/
+storage/
+files/

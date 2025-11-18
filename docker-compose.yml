@@ -1,0 +1,32 @@
+services:
+  storage-manager:
+    build: .
+    container_name: storage-manager-app
+    ports:
+      - "5001:5001"
+    environment:
+      - FLASK_ENV=development
+      - DATABASE_PATH=/app/instance/storage_manager.db
+      - SESSION_COOKIE_SECURE=False
+      - APP_URL=http://localhost:5001
+      - LOG_LEVEL=INFO
+    env_file:
+      - .env  # Load environment variables from .env file
+    volumes:
+      # Persist database and session data
+      - ./instance:/app/instance
+      - ./flask_session:/app/flask_session
+      - ./emails:/app/emails
+      # Mount .env file for direct access (read-only)
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  default:
+    name: storage-manager-network

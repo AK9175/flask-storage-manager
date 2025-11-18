@@ -1,0 +1,714 @@
+{% extends "base.html" %}
+
+{% block title %}Provider Management - Storage Manager{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 p-8">
+  <div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="mb-8">
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">Cloud Providers</h1>
+      <p class="text-gray-600">Manage your storage provider credentials securely</p>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="bg-white rounded-lg shadow-md mb-6">
+      <div class="flex border-b border-gray-200">
+        <button class="tab-btn active px-6 py-4 border-b-2 border-purple-500 text-purple-600 font-medium" data-tab="providers">
+          Configured Providers
+        </button>
+        <button class="tab-btn px-6 py-4 text-gray-600 font-medium hover:text-gray-800" data-tab="add">
+          Add New Provider
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab: Configured Providers -->
+    <div id="providers-tab" class="tab-content active">
+      <div class="grid gap-6">
+        <!-- Loading State -->
+        <div id="providers-loading" class="bg-white rounded-lg shadow-md p-8 text-center">
+          <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+          <p class="text-gray-600 mt-4">Loading providers...</p>
+        </div>
+
+        <!-- Providers List -->
+        <div id="providers-list" class="hidden">
+          <div id="no-providers" class="bg-white rounded-lg shadow-md p-12 text-center hidden">
+            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3v-6"></path>
+            </svg>
+            <h3 class="text-lg font-medium text-gray-900 mt-4">No providers configured</h3>
+            <p class="text-gray-600 mt-2">Get started by adding your first cloud storage provider</p>
+            <button onclick="switchTab('add')" class="mt-4 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition">
+              Add Provider
+            </button>
+          </div>
+
+          <div id="providers-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Add New Provider -->
+    <div id="add-tab" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Form -->
+        <div class="lg:col-span-2">
+          <div class="bg-white rounded-lg shadow-md p-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">Add Cloud Storage Provider</h2>
+
+            <!-- Provider Type Selection -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Provider Type *
+              </label>
+              <select id="provider-type" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent" onchange="updateFormFields()">
+                <option value="">Select a provider...</option>
+              </select>
+              <p id="provider-description" class="mt-2 text-sm text-gray-600"></p>
+            </div>
+
+            <!-- Display Name -->
+            <div class="mb-6">
+              <label class="block text-sm font-medium text-gray-700 mb-2">
+                Display Name *
+              </label>
+              <input type="text" id="display-name" placeholder="e.g., Production S3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+              <p class="text-xs text-gray-500 mt-1">Friendly name to identify this provider</p>
+            </div>
+
+            <!-- Dynamic Credential Fields -->
+            <div id="credential-fields" class="space-y-6 mb-8"></div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-4">
+              <button onclick="createProvider()" class="flex-1 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition font-medium">
+                Add Provider
+              </button>
+              <button onclick="resetForm()" class="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition font-medium">
+                Clear
+              </button>
+            </div>
+
+            <!-- Status Message -->
+            <div id="form-message" class="mt-6 hidden"></div>
+          </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="lg:col-span-1">
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 sticky top-8">
+            <h3 class="font-semibold text-blue-900 mb-4">ℹ️ Provider Information</h3>
+            <div id="provider-info-panel" class="text-sm text-blue-800 space-y-2">
+              <p>Select a provider to see required credentials and setup instructions.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Provider Card Template (hidden) -->
+<template id="provider-card-template">
+  <div class="provider-card bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
+    <!-- Header -->
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <h3 class="text-xl font-bold text-gray-800 provider-display-name"></h3>
+        <p class="text-sm text-gray-600 provider-type"></p>
+      </div>
+      <div class="flex gap-2">
+        <span class="provider-status-badge inline-block px-3 py-1 rounded-full text-xs font-medium"></span>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="space-y-2 mb-6 text-sm text-gray-600">
+      <p><span class="font-medium">Created:</span> <span class="provider-created"></span></p>
+      <p><span class="font-medium">Last Tested:</span> <span class="provider-last-tested">Never</span></p>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-wrap gap-2">
+      <button class="provider-test-btn flex-1 bg-blue-100 text-blue-700 px-4 py-2 rounded-lg hover:bg-blue-200 transition text-sm font-medium">
+        🔌 Test
+      </button>
+      <button class="provider-buckets-btn flex-1 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition text-sm font-medium">
+        🪣 Buckets
+      </button>
+      <button class="provider-delete-btn flex-1 bg-red-100 text-red-700 px-4 py-2 rounded-lg hover:bg-red-200 transition text-sm font-medium">
+        🗑️ Delete
+      </button>
+    </div>
+
+    <!-- Loading State -->
+    <div class="provider-loading hidden mt-4 text-center">
+      <div class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-purple-500"></div>
+      <p class="text-sm text-gray-600 mt-2">Processing...</p>
+    </div>
+  </div>
+</template>
+
+<!-- Modal: Buckets -->
+<div id="buckets-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">Buckets</h2>
+      <button onclick="closeBucketsModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+    </div>
+
+    <div id="buckets-content">
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+        <p class="text-gray-600 mt-2">Loading buckets...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Test Result -->
+<div id="test-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-2xl font-bold text-gray-800">Connection Test</h2>
+      <button onclick="closeTestModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+    </div>
+
+    <div id="test-content">
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+        <p class="text-gray-600 mt-2">Testing connection...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirm Delete -->
+<div id="delete-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
+    <h2 class="text-2xl font-bold text-gray-800 mb-4">Delete Provider?</h2>
+    <p class="text-gray-600 mb-6">
+      Are you sure you want to delete <span id="delete-provider-name" class="font-medium"></span>? 
+      This action cannot be undone.
+    </p>
+
+    <div class="flex gap-4">
+      <button onclick="confirmDelete()" class="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition font-medium">
+        Delete
+      </button>
+      <button onclick="closeDeleteModal()" class="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition font-medium">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Global state
+let providers = [];
+let providerMetadata = [];
+let currentProvider = null;
+let currentDeleteId = null;
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+  loadProviderMetadata();
+  loadProviders();
+
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      switchTab(tab);
+    });
+  });
+});
+
+// Switch tabs
+function switchTab(tab) {
+  // Update buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active', 'border-b-2', 'border-purple-500', 'text-purple-600');
+    btn.classList.add('text-gray-600');
+  });
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active', 'border-b-2', 'border-purple-500', 'text-purple-600');
+
+  // Update content
+  document.querySelectorAll('.tab-content').forEach(content => {
+    content.classList.add('hidden');
+    content.classList.remove('active');
+  });
+  document.getElementById(`${tab}-tab`).classList.remove('hidden');
+  document.getElementById(`${tab}-tab`).classList.add('active');
+}
+
+// Load provider metadata (available provider types)
+async function loadProviderMetadata() {
+  try {
+    const response = await fetch('/admin/providers/info');
+    if (!response.ok) throw new Error('Failed to load provider info');
+    
+    const data = await response.json();
+    providerMetadata = data.providers;
+
+    // Populate provider type dropdown
+    const select = document.getElementById('provider-type');
+    providerMetadata.forEach(provider => {
+      const option = document.createElement('option');
+      option.value = provider.type;
+      option.textContent = provider.name;
+      select.appendChild(option);
+    });
+  } catch (error) {
+    showMessage('form-message', 'Failed to load provider types', 'error');
+  }
+}
+
+// Load configured providers
+async function loadProviders() {
+  try {
+    const response = await fetch('/admin/providers');
+    if (!response.ok) {
+      if (response.status === 403) {
+        showMessage('providers-loading', 'You must be logged in as an admin to view providers', 'error');
+        return;
+      }
+      throw new Error('Failed to load providers');
+    }
+
+    const data = await response.json();
+    providers = data.providers;
+
+    // Hide loading, show list
+    document.getElementById('providers-loading').classList.add('hidden');
+    document.getElementById('providers-list').classList.remove('hidden');
+
+    if (providers.length === 0) {
+      document.getElementById('no-providers').classList.remove('hidden');
+      document.getElementById('providers-grid').classList.add('hidden');
+    } else {
+      document.getElementById('no-providers').classList.add('hidden');
+      document.getElementById('providers-grid').classList.remove('hidden');
+      renderProviders();
+    }
+  } catch (error) {
+    document.getElementById('providers-loading').innerHTML = `
+      <div class="text-center text-red-600">
+        <p class="font-medium">Error loading providers</p>
+        <p class="text-sm">${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Render providers
+function renderProviders() {
+  const grid = document.getElementById('providers-grid');
+  grid.innerHTML = '';
+
+  providers.forEach(provider => {
+    const template = document.getElementById('provider-card-template');
+    const card = template.content.cloneNode(true);
+
+    // Fill data
+    card.querySelector('.provider-display-name').textContent = provider.display_name;
+    card.querySelector('.provider-type').textContent = getProviderName(provider.provider_type);
+    
+    // Status badge
+    const badge = card.querySelector('.provider-status-badge');
+    if (provider.is_active) {
+      badge.classList.add('bg-green-100', 'text-green-800');
+      badge.textContent = '✓ Active';
+    } else {
+      badge.classList.add('bg-gray-100', 'text-gray-800');
+      badge.textContent = '○ Inactive';
+    }
+
+    // Dates
+    card.querySelector('.provider-created').textContent = formatDate(provider.created_at);
+    if (provider.last_tested_at) {
+      card.querySelector('.provider-last-tested').textContent = formatDate(provider.last_tested_at);
+    }
+
+    // Actions
+    card.querySelector('.provider-test-btn').addEventListener('click', () => testProvider(provider.id));
+    card.querySelector('.provider-buckets-btn').addEventListener('click', () => loadBuckets(provider.id, provider.display_name));
+    card.querySelector('.provider-delete-btn').addEventListener('click', () => showDeleteConfirm(provider.id, provider.display_name));
+
+    grid.appendChild(card);
+  });
+}
+
+// Update form fields based on provider type
+function updateFormFields() {
+  const providerType = document.getElementById('provider-type').value;
+  const metadata = providerMetadata.find(p => p.type === providerType);
+
+  if (!metadata) {
+    document.getElementById('credential-fields').innerHTML = '';
+    document.getElementById('provider-description').textContent = '';
+    document.getElementById('provider-info-panel').innerHTML = '<p>Select a provider to see required credentials and setup instructions.</p>';
+    return;
+  }
+
+  // Update description
+  document.getElementById('provider-description').textContent = metadata.description;
+
+  // Update info panel
+  document.getElementById('provider-info-panel').innerHTML = `
+    <p><strong>${metadata.name}</strong></p>
+    <p class="mt-2">${metadata.description}</p>
+    <div class="mt-4 pt-4 border-t border-blue-200">
+      <p class="font-medium mb-2">Required fields:</p>
+      <ul class="list-disc list-inside space-y-1">
+        ${metadata.fields.filter(f => f.required).map(f => `<li>${f.label}</li>`).join('')}
+      </ul>
+    </div>
+  `;
+
+  // Generate form fields
+  const fieldsContainer = document.getElementById('credential-fields');
+  fieldsContainer.innerHTML = '';
+
+  metadata.fields.forEach(field => {
+    const div = document.createElement('div');
+    div.className = 'mb-6';
+
+    const label = document.createElement('label');
+    label.className = 'block text-sm font-medium text-gray-700 mb-2';
+    label.innerHTML = `${field.label} ${field.required ? '*' : ''}`;
+
+    let input;
+    if (field.type === 'textarea') {
+      input = document.createElement('textarea');
+      input.className = 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent font-mono text-sm';
+      input.rows = 4;
+    } else {
+      input = document.createElement('input');
+      input.type = field.type;
+      input.className = 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent';
+    }
+
+    input.id = `field-${field.name}`;
+    input.name = field.name;
+    input.placeholder = field.placeholder || '';
+    input.required = field.required;
+
+    div.appendChild(label);
+    div.appendChild(input);
+
+    if (field.type === 'password') {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.type = 'button';
+      toggleBtn.className = 'text-xs text-gray-600 hover:text-gray-800 mt-1';
+      toggleBtn.textContent = 'Show password';
+      toggleBtn.onclick = (e) => {
+        e.preventDefault();
+        input.type = input.type === 'password' ? 'text' : 'password';
+        toggleBtn.textContent = input.type === 'password' ? 'Show password' : 'Hide password';
+      };
+      div.appendChild(toggleBtn);
+    }
+
+    fieldsContainer.appendChild(div);
+  });
+}
+
+// Create provider
+async function createProvider() {
+  const providerType = document.getElementById('provider-type').value;
+  const displayName = document.getElementById('display-name').value;
+
+  if (!providerType || !displayName) {
+    showMessage('form-message', 'Please select a provider type and enter a display name', 'error');
+    return;
+  }
+
+  // Collect credentials
+  const credentials = {};
+  document.querySelectorAll('#credential-fields input, #credential-fields textarea').forEach(field => {
+    if (field.value) {
+      credentials[field.name] = field.value;
+    }
+  });
+
+  const payload = {
+    provider_type: providerType,
+    display_name: displayName,
+    credentials: credentials
+  };
+
+  try {
+    showMessage('form-message', 'Creating provider and testing credentials...', 'loading');
+    
+    const response = await fetch('/admin/providers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      showMessage('form-message', `✓ Provider "${displayName}" created successfully!`, 'success');
+      resetForm();
+      setTimeout(() => {
+        loadProviders();
+        switchTab('providers');
+      }, 1500);
+    } else {
+      showMessage('form-message', `✗ Error: ${data.error || 'Failed to create provider'}\n${data.details ? `Details: ${data.details}` : ''}`, 'error');
+    }
+  } catch (error) {
+    showMessage('form-message', `✗ Error: ${error.message}`, 'error');
+  }
+}
+
+// Test provider connection
+async function testProvider(providerId) {
+  const provider = providers.find(p => p.id === providerId);
+  if (!provider) return;
+
+  const modal = document.getElementById('test-modal');
+  const content = document.getElementById('test-content');
+  modal.classList.remove('hidden');
+
+  try {
+    const response = await fetch(`/admin/providers/${providerId}/test`, {
+      method: 'POST'
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      content.innerHTML = `
+        <div class="text-center">
+          <div class="text-4xl mb-4">✓</div>
+          <p class="text-green-600 font-medium">Connection Successful</p>
+          <p class="text-gray-600 text-sm mt-2">${data.message}</p>
+        </div>
+      `;
+    } else {
+      content.innerHTML = `
+        <div class="text-center">
+          <div class="text-4xl mb-4">✗</div>
+          <p class="text-red-600 font-medium">Connection Failed</p>
+          <p class="text-gray-600 text-sm mt-2">${data.message}</p>
+        </div>
+      `;
+    }
+
+    // Close after 3 seconds
+    setTimeout(() => {
+      closeTestModal();
+      loadProviders();
+    }, 3000);
+  } catch (error) {
+    content.innerHTML = `
+      <div class="text-center">
+        <div class="text-4xl mb-4 text-red-500">⚠️</div>
+        <p class="text-red-600 font-medium">Error</p>
+        <p class="text-gray-600 text-sm mt-2">${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Load buckets
+async function loadBuckets(providerId, providerName) {
+  const modal = document.getElementById('buckets-modal');
+  const content = document.getElementById('buckets-content');
+  modal.classList.remove('hidden');
+
+  try {
+    const response = await fetch(`/admin/providers/${providerId}/buckets`);
+    const data = await response.json();
+
+    if (response.ok) {
+      const buckets = data.buckets || [];
+      if (buckets.length === 0) {
+        content.innerHTML = `
+          <div class="text-center">
+            <p class="text-gray-600">No buckets found for ${providerName}</p>
+          </div>
+        `;
+      } else {
+        content.innerHTML = `
+          <div class="max-h-96 overflow-y-auto">
+            <div class="space-y-3">
+              ${buckets.map(bucket => `
+                <div class="bg-gray-50 p-4 rounded border border-gray-200">
+                  <p class="text-gray-800 font-bold break-all">🪣 ${bucket.name}</p>
+                  ${bucket.policy ? `
+                    <div class="mt-3 text-xs space-y-2 bg-blue-50 p-3 rounded border border-blue-200">
+                      <p class="text-blue-900"><strong>Cloud IAM Policy:</strong></p>
+                      <div class="bg-white p-2 rounded max-h-32 overflow-y-auto text-xs font-mono">
+                        <pre class="whitespace-pre-wrap break-words text-gray-700">${JSON.stringify(bucket.policy, null, 2)}</pre>
+                      </div>
+                    </div>
+                  ` : `
+                    <p class="text-xs text-gray-500 mt-2"><em>No IAM policy attached</em></p>
+                  `}
+                </div>
+              `).join('')}
+            </div>
+            <p class="text-xs text-gray-600 mt-4 text-center">${buckets.length} bucket(s) found</p>
+          </div>
+        `;
+      }
+    } else {
+      content.innerHTML = `
+        <div class="text-center text-red-600">
+          <p class="font-medium">Failed to load buckets</p>
+          <p class="text-sm">${data.error || 'Unknown error'}</p>
+        </div>
+      `;
+    }
+  } catch (error) {
+    content.innerHTML = `
+      <div class="text-center text-red-600">
+        <p class="font-medium">Error</p>
+        <p class="text-sm">${error.message}</p>
+      </div>
+    `;
+  }
+}
+
+// Delete provider
+async function deleteProvider(providerId) {
+  try {
+    const response = await fetch(`/admin/providers/${providerId}`, {
+      method: 'DELETE'
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      closeDeleteModal();
+      showNotification(`✓ ${data.message}`, 'success');
+      loadProviders();
+    } else {
+      showNotification(`✗ Error: ${data.error}`, 'error');
+    }
+  } catch (error) {
+    showNotification(`✗ Error: ${error.message}`, 'error');
+  }
+}
+
+// Modals
+function closeTestModal() {
+  document.getElementById('test-modal').classList.add('hidden');
+}
+
+function closeBucketsModal() {
+  document.getElementById('buckets-modal').classList.add('hidden');
+}
+
+function showDeleteConfirm(providerId, providerName) {
+  currentDeleteId = providerId;
+  document.getElementById('delete-provider-name').textContent = providerName;
+  document.getElementById('delete-modal').classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('delete-modal').classList.add('hidden');
+  currentDeleteId = null;
+}
+
+function confirmDelete() {
+  if (currentDeleteId) {
+    deleteProvider(currentDeleteId);
+  }
+}
+
+// Utilities
+function resetForm() {
+  document.getElementById('provider-type').value = '';
+  document.getElementById('display-name').value = '';
+  document.getElementById('credential-fields').innerHTML = '';
+  document.getElementById('form-message').classList.add('hidden');
+}
+
+function getProviderName(type) {
+  const meta = providerMetadata.find(p => p.type === type);
+  return meta ? meta.name : type;
+}
+
+function formatDate(dateString) {
+  if (!dateString) return 'Never';
+  const date = new Date(dateString);
+  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+}
+
+function showMessage(elementId, message, type) {
+  const el = document.getElementById(elementId);
+  let bgColor, textColor, icon;
+
+  if (type === 'error') {
+    bgColor = 'bg-red-50';
+    textColor = 'text-red-800';
+    icon = '✗';
+  } else if (type === 'success') {
+    bgColor = 'bg-green-50';
+    textColor = 'text-green-800';
+    icon = '✓';
+  } else if (type === 'loading') {
+    bgColor = 'bg-blue-50';
+    textColor = 'text-blue-800';
+    icon = '⟳';
+  }
+
+  el.className = `${bgColor} ${textColor} border border-current rounded p-4 whitespace-pre-wrap text-sm`;
+  el.innerHTML = `<strong>${icon}</strong> ${message}`;
+  el.classList.remove('hidden');
+}
+
+function showNotification(message, type) {
+  const notification = document.createElement('div');
+  notification.className = type === 'success' 
+    ? 'fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg'
+    : 'fixed bottom-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg';
+  notification.textContent = message;
+  document.body.appendChild(notification);
+  setTimeout(() => notification.remove(), 3000);
+}
+
+// Close modals on escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.getElementById('test-modal').classList.add('hidden');
+    document.getElementById('buckets-modal').classList.add('hidden');
+    document.getElementById('delete-modal').classList.add('hidden');
+  }
+});
+</script>
+
+<style>
+.modal.hidden {
+  display: none;
+}
+
+.tab-btn {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  @apply text-purple-600;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+</style>
+{% endblock %}

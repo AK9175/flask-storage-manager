@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}Bucket Requests - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <div class="mb-8">
+        <h2 class="text-3xl font-bold text-gray-900 mb-2">Bucket Requests</h2>
+        <p class="text-gray-600">Manage user requests for bucket access</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-6 border-b border-gray-200">
+        <div class="flex gap-8">
+            <button onclick="switchTab('pending')" id="pending-tab" class="tab-button active pb-4 px-2 border-b-2 border-purple-600 text-purple-600 font-medium">
+                Pending Requests
+                <span id="pending-count" class="bg-purple-100 text-purple-800 text-xs font-semibold px-2.5 py-0.5 rounded-full ml-2">0</span>
+            </button>
+            <button onclick="switchTab('approved')" id="approved-tab" class="tab-button pb-4 px-2 border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-900">
+                Approved
+                <span id="approved-count" class="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded-full ml-2">0</span>
+            </button>
+            <button onclick="switchTab('rejected')" id="rejected-tab" class="tab-button pb-4 px-2 border-b-2 border-transparent text-gray-600 font-medium hover:text-gray-900">
+                Rejected
+                <span id="rejected-count" class="bg-red-100 text-red-800 text-xs font-semibold px-2.5 py-0.5 rounded-full ml-2">0</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+            <p class="mt-4 text-gray-600">Loading requests...</p>
+        </div>
+    </div>
+
+    <!-- Requests List -->
+    <div id="requests-container" class="hidden">
+        <div id="pending-requests" class="tab-content">
+            <div id="pending-list" class="space-y-4"></div>
+            <div id="pending-empty" class="text-center py-12">
+                <p class="text-gray-500">No pending requests</p>
+            </div>
+        </div>
+
+        <div id="approved-requests" class="tab-content hidden">
+            <div id="approved-list" class="space-y-4"></div>
+            <div id="approved-empty" class="text-center py-12">
+                <p class="text-gray-500">No approved requests</p>
+            </div>
+        </div>
+
+        <div id="rejected-requests" class="tab-content hidden">
+            <div id="rejected-list" class="space-y-4"></div>
+            <div id="rejected-empty" class="text-center py-12">
+                <p class="text-gray-500">No rejected requests</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Message -->
+    <div id="error-message" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+        <p id="error-text"></p>
+    </div>
+</div>
+
+<!-- Approve Modal -->
+<div id="approve-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg max-w-2xl w-full mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Approve Bucket Request</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">User Email</label>
+                <p id="modal-user-email" class="text-gray-900"></p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Bucket Name</label>
+                <p id="modal-bucket-name" class="text-gray-900"></p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Provider</label>
+                <p id="modal-provider-name" class="text-gray-900"></p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Permission Preset</label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="radio" name="permission-preset" value="upload_only" class="text-purple-600">
+                        <span class="ml-2 text-gray-700">Upload Only (Write, List)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="permission-preset" value="download_only" class="text-purple-600">
+                        <span class="ml-2 text-gray-700">Download Only (Read, List)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="permission-preset" value="read_write" class="text-purple-600" checked>
+                        <span class="ml-2 text-gray-700">Read & Write (No Delete)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="permission-preset" value="full_access" class="text-purple-600">
+                        <span class="ml-2 text-gray-700">Full Access (All Operations)</span>
+                    </label>
+                </div>
+            </div>
+            <div>
+                <label for="modal-notes" class="block text-sm font-medium text-gray-700 mb-1">Admin Notes</label>
+                <textarea id="modal-notes" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500" rows="3" placeholder="Add notes for this approval..."></textarea>
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="closeModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50">
+                Cancel
+            </button>
+            <button onclick="submitApproval()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700">
+                Approve
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="reject-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg max-w-md w-full mx-4 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold text-gray-900">Reject Request</h3>
+            <button onclick="closeRejectModal()" class="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <div>
+                <label for="reject-reason" class="block text-sm font-medium text-gray-700 mb-1">Rejection Reason</label>
+                <textarea id="reject-reason" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500" rows="4" placeholder="Explain why you're rejecting this request..."></textarea>
+            </div>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="closeRejectModal()" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50">
+                Cancel
+            </button>
+            <button onclick="submitRejection()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700">
+                Reject
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentRequestId = null;
+let allRequests = [];
+
+// Initialize
+document.addEventListener('DOMContentLoaded', function() {
+    loadRequests();
+});
+
+function loadRequests() {
+    axios.get('/admin/buckets/requests')
+        .then(response => {
+            if (response.data.success) {
+                allRequests = response.data.requests;
+                renderRequests();
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('requests-container').classList.remove('hidden');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading requests:', error);
+            showError('Failed to load bucket requests');
+        });
+}
+
+function renderRequests() {
+    const pending = allRequests.filter(r => r.status === 'pending');
+    const approved = allRequests.filter(r => r.status === 'approved');
+    const rejected = allRequests.filter(r => r.status === 'rejected');
+
+    // Update counts
+    document.getElementById('pending-count').textContent = pending.length;
+    document.getElementById('approved-count').textContent = approved.length;
+    document.getElementById('rejected-count').textContent = rejected.length;
+
+    // Render pending
+    const pendingList = document.getElementById('pending-list');
+    const pendingEmpty = document.getElementById('pending-empty');
+    if (pending.length > 0) {
+        pendingList.innerHTML = pending.map(req => createRequestCard(req)).join('');
+        pendingEmpty.classList.add('hidden');
+    } else {
+        pendingList.innerHTML = '';
+        pendingEmpty.classList.remove('hidden');
+    }
+
+    // Render approved
+    const approvedList = document.getElementById('approved-list');
+    const approvedEmpty = document.getElementById('approved-empty');
+    if (approved.length > 0) {
+        approvedList.innerHTML = approved.map(req => createRequestCard(req)).join('');
+        approvedEmpty.classList.add('hidden');
+    } else {
+        approvedList.innerHTML = '';
+        approvedEmpty.classList.remove('hidden');
+    }
+
+    // Render rejected
+    const rejectedList = document.getElementById('rejected-list');
+    const rejectedEmpty = document.getElementById('rejected-empty');
+    if (rejected.length > 0) {
+        rejectedList.innerHTML = rejected.map(req => createRequestCard(req)).join('');
+        rejectedEmpty.classList.add('hidden');
+    } else {
+        rejectedList.innerHTML = '';
+        rejectedEmpty.classList.remove('hidden');
+    }
+}
+
+function createRequestCard(request) {
+    const createdDate = new Date(request.created_at).toLocaleDateString();
+    const statusColor = request.status === 'pending' ? 'blue' : request.status === 'approved' ? 'green' : 'red';
+    const statusBg = `bg-${statusColor}-50`;
+    const statusText = `text-${statusColor}-800`;
+    const statusBorder = `border-${statusColor}-200`;
+
+    let actionButtons = '';
+    if (request.status === 'pending') {
+        actionButtons = `
+            <button onclick="openApprovalModal(${request.id}, '${request.user_email}', '${request.bucket_name}', '${request.provider_name}')" class="px-3 py-1.5 bg-green-600 text-white text-sm rounded hover:bg-green-700">
+                Approve
+            </button>
+            <button onclick="openRejectModal(${request.id})" class="px-3 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700">
+                Reject
+            </button>
+        `;
+    }
+
+    return `
+        <div class="border rounded-lg p-4 hover:shadow-md transition-shadow ${statusBorder} border-l-4">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <h3 class="font-semibold text-gray-900">${request.bucket_name}</h3>
+                    <p class="text-sm text-gray-600">${request.user_email}</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-medium ${statusBg} ${statusText}">
+                    ${request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 mb-3 text-sm">
+                <div>
+                    <span class="text-gray-600">Provider:</span>
+                    <p class="font-medium text-gray-900">${request.provider_name}</p>
+                </div>
+                <div>
+                    <span class="text-gray-600">Request Type:</span>
+                    <p class="font-medium text-gray-900">${request.request_type.charAt(0).toUpperCase() + request.request_type.slice(1)}</p>
+                </div>
+                <div>
+                    <span class="text-gray-600">Requested:</span>
+                    <p class="font-medium text-gray-900">${createdDate}</p>
+                </div>
+            </div>
+
+            ${request.admin_notes ? `<div class="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-800">
+                <strong>Admin Notes:</strong> ${request.admin_notes}
+            </div>` : ''}
+
+            <div class="flex gap-2">
+                ${actionButtons}
+            </div>
+        </div>
+    `;
+}
+
+function openApprovalModal(requestId, userEmail, bucketName, providerName) {
+    currentRequestId = requestId;
+    document.getElementById('modal-user-email').textContent = userEmail;
+    document.getElementById('modal-bucket-name').textContent = bucketName;
+    document.getElementById('modal-provider-name').textContent = providerName;
+    document.getElementById('modal-notes').value = '';
+    document.querySelector('input[name="permission-preset"][value="read_write"]').checked = true;
+    document.getElementById('approve-modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('approve-modal').classList.add('hidden');
+    currentRequestId = null;
+}
+
+function openRejectModal(requestId) {
+    currentRequestId = requestId;
+    document.getElementById('reject-reason').value = '';
+    document.getElementById('reject-modal').classList.remove('hidden');
+}
+
+function closeRejectModal() {
+    document.getElementById('reject-modal').classList.add('hidden');
+    currentRequestId = null;
+}
+
+function submitApproval() {
+    const preset = document.querySelector('input[name="permission-preset"]:checked').value;
+    const notes = document.getElementById('modal-notes').value;
+
+    axios.post(`/admin/buckets/request/${currentRequestId}/approve`, {
+        permission_preset: preset,
+        admin_notes: notes
+    })
+        .then(response => {
+            if (response.data.success) {
+                closeModal();
+                loadRequests();
+                showSuccess('Request approved successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error approving request:', error);
+            showError('Failed to approve request');
+        });
+}
+
+function submitRejection() {
+    const reason = document.getElementById('reject-reason').value;
+
+    if (!reason.trim()) {
+        alert('Please provide a rejection reason');
+        return;
+    }
+
+    axios.post(`/admin/buckets/request/${currentRequestId}/reject`, {
+        reason: reason
+    })
+        .then(response => {
+            if (response.data.success) {
+                closeRejectModal();
+                loadRequests();
+                showSuccess('Request rejected successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error rejecting request:', error);
+            showError('Failed to reject request');
+        });
+}
+
+function switchTab(tab) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(el => {
+        el.classList.add('hidden');
+    });
+
+    // Deactivate all tabs
+    document.querySelectorAll('.tab-button').forEach(el => {
+        el.classList.remove('border-purple-600', 'text-purple-600');
+        el.classList.add('border-transparent', 'text-gray-600');
+    });
+
+    // Show selected tab
+    document.getElementById(`${tab}-requests`).classList.remove('hidden');
+
+    // Activate selected tab button
+    document.getElementById(`${tab}-tab`).classList.remove('border-transparent', 'text-gray-600');
+    document.getElementById(`${tab}-tab`).classList.add('border-purple-600', 'text-purple-600');
+}
+
+function showSuccess(message) {
+    const errorEl = document.getElementById('error-message');
+    errorEl.classList.add('hidden');
+    // Could show a success toast here
+    console.log(message);
+}
+
+function showError(message) {
+    const errorEl = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    errorText.textContent = message;
+    errorEl.classList.remove('hidden');
+}
+</script>
+
+<style>
+.tab-button {
+    transition: all 0.3s ease;
+}
+</style>
+{% endblock %}

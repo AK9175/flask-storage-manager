@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Storage Manager{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-purple-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-8">
+                <h1 class="text-2xl font-bold">Storage Manager</h1>
+                                {% if current_user.is_authenticated %}
+                    <div class="flex gap-6">
+                        {% if current_user.__class__.__name__ == 'Admin' %}
+                            <a href="{{ url_for('admin_dashboard') }}" class="text-purple-100 hover:text-white">Admin Dashboard</a>
+                            <a href="{{ url_for('manage_providers_ui') }}" class="text-purple-100 hover:text-white">Providers</a>
+                            <a href="{{ url_for('admin_bucket_requests_ui') }}" class="text-purple-100 hover:text-white">Bucket Requests</a>
+                        {% else %}
+                            <a href="{{ url_for('user_dashboard') }}" class="text-purple-100 hover:text-white">Dashboard</a>
+                            <a href="{{ url_for('user_bucket_management_ui') }}" class="text-purple-100 hover:text-white">Manage Buckets</a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-4">
+                {% if current_user.is_authenticated %}
+                    <span class="text-purple-100">{{ current_user.email }}</span>
+                    <a href="{% if current_user.__class__.__name__ == 'Admin' %}{{ url_for('auth.admin_logout') }}{% else %}{{ url_for('auth.user_logout') }}{% endif %}" class="bg-purple-700 hover:bg-purple-800 px-4 py-2 rounded text-white font-medium">
+                        Logout
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="min-h-screen">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-gray-400 text-center py-4 mt-12">
+        <p>&copy; 2025 Storage Manager. All rights reserved.</p>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

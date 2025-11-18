@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Storage File Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto py-4">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Storage File Manager</h1>
+            <div class="flex items-center space-x-2">
+                <span class="text-gray-600">Bucket: {{ session.get('bucket') }}</span>
+                <a href="{{ url_for('configure_storage') }}" 
+                   class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                    Reconfigure
+                </a>
+                <a href="{{ url_for('logout') }}" 
+                   class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700">
+                    Logout
+                </a>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div id="dropZone" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
+                <p class="text-gray-600 mb-4">Drag & Drop files here or click to select</p>
+                <button id="selectButton" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                    <span class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        SELECT FILES
+                    </span>
+                </button>
+                <input type="file" id="fileInput" class="hidden" multiple>
+            </div>
+            <div id="uploadProgress" class="mt-4 space-y-2">
+                <!-- Upload progress items will be added here -->
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center space-x-2">
+                <span class="text-gray-600">Current Path:</span>
+                <span id="currentPath" class="font-mono bg-gray-100 px-2 py-1 rounded">Root</span>
+            </div>
+            <div class="flex space-x-2">
+                <button id="newFolderBtn" class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700">
+                    <span class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        New Folder
+                    </span>
+                </button>
+                <button id="toggleVisibility" class="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                    <span class="flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                        </svg>
+                        Visibility
+                    </span>
+                </button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-2">
+                <div class="bg-white rounded-lg shadow-md">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold">Files and Folders</h2>
+                    </div>
+                    <div id="fileList" class="p-4">
+                        <!-- Files will be listed here -->
+                    </div>
+                </div>
+            </div>
+            <div>
+                <div class="bg-white rounded-lg shadow-md">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold">File Preview</h2>
+                    </div>
+                    <div id="preview" class="p-4">
+                        <!-- File preview will be shown here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

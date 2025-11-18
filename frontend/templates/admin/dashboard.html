@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Storage Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-purple-600 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Storage Manager</h1>
+            <div class="flex items-center gap-4">
+                <span class="text-purple-100">{{ admin.email }}</span>
+                <form method="POST" action="{{ url_for('auth.admin_logout') }}" class="inline" onsubmit="handleLogout()">
+                    <button type="submit" class="bg-purple-700 hover:bg-purple-800 px-4 py-2 rounded">
+                        Logout
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-gray-600 text-sm font-medium">Total Users</h3>
+                <p class="text-3xl font-bold mt-2" id="total-users">-</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-gray-600 text-sm font-medium">Active Users</h3>
+                <p class="text-3xl font-bold mt-2" id="active-users">-</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-gray-600 text-sm font-medium">Inactive Users</h3>
+                <p class="text-3xl font-bold mt-2" id="inactive-users">-</p>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-gray-600 text-sm font-medium">Pending Invitations</h3>
+                <p class="text-3xl font-bold mt-2" id="pending-invitations">-</p>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="border-b border-gray-200">
+                <div class="flex gap-0">
+                    <button class="tab-button px-6 py-4 border-b-2 border-purple-600 text-purple-600 font-medium" data-tab="users">
+                        Users
+                    </button>
+                    <button class="tab-button px-6 py-4 border-b-2 border-transparent text-gray-600 font-medium" data-tab="bucket-requests">
+                        Bucket Requests
+                    </button>
+                    <button class="tab-button px-6 py-4 border-b-2 border-transparent text-gray-600 font-medium" data-tab="invitations">
+                        Invitations
+                    </button>
+                    <button class="tab-button px-6 py-4 border-b-2 border-transparent text-gray-600 font-medium" data-tab="providers">
+                        Cloud Providers
+                    </button>
+                    <a href="/admin/users" class="px-6 py-4 text-gray-600 font-medium hover:text-purple-600 hover:border-b-2 hover:border-purple-600">
+                        Manage Access
+                    </a>
+                </div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="tab-users" class="tab-content p-6">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold mb-4">Manage Users</h2>
+                    <div class="flex gap-4 mb-6">
+                        <input type="email" id="invite-email" placeholder="Enter user email..." class="flex-1 px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-purple-600">
+                        <button id="invite-button" class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded">
+                            Send Invitation
+                        </button>
+                    </div>
+                    <input type="text" id="search-users" placeholder="Search by email or name..." class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-purple-600 mb-4">
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-100 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Email</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Name</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Status</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Joined</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div id="pagination" class="mt-4 flex gap-2 justify-center"></div>
+            </div>
+
+            <!-- Bucket Requests Tab -->
+            <div id="tab-bucket-requests" class="tab-content hidden p-6">
+                <h2 class="text-xl font-bold mb-6">Bucket Access Requests</h2>
+                
+                <!-- Filter Tabs -->
+                <div class="flex gap-2 mb-6 border-b border-gray-200">
+                    <button class="request-filter px-4 py-2 border-b-2 border-purple-600 text-purple-600 font-medium" data-filter="pending">
+                        Pending <span id="pending-count" class="ml-2 bg-purple-600 text-white rounded-full px-2 py-0.5 text-sm">0</span>
+                    </button>
+                    <button class="request-filter px-4 py-2 border-b-2 border-transparent text-gray-600" data-filter="approved">
+                        Approved <span id="approved-count" class="ml-2 bg-green-600 text-white rounded-full px-2 py-0.5 text-sm">0</span>
+                    </button>
+                    <button class="request-filter px-4 py-2 border-b-2 border-transparent text-gray-600" data-filter="rejected">
+                        Rejected <span id="rejected-count" class="ml-2 bg-red-600 text-white rounded-full px-2 py-0.5 text-sm">0</span>
+                    </button>
+                </div>
+
+                <!-- Requests List -->
+                <div id="bucket-requests-container" class="space-y-4">
+                    <div class="text-center py-12 text-gray-500">Loading requests...</div>
+                </div>
+            </div>
+
+            <!-- Invitations Tab -->
+            <div id="tab-invitations" class="tab-content hidden p-6">
+                <h2 class="text-xl font-bold mb-4">Pending Invitations</h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-100 border-b border-gray-200">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Email</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Sent</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Expires</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Status</th>
+                                <th class="px-6 py-3 text-left text-sm font-medium text-gray-600">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invitations-table-body">
+                            <tr>
+                                <td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Cloud Providers Tab -->
+            <div id="tab-providers" class="tab-content hidden p-6">
+                <div class="text-center py-12">
+                    <h2 class="text-2xl font-bold mb-4">Cloud Storage Providers</h2>
+                    <p class="text-gray-600 mb-8">Manage and configure cloud storage providers for your application.</p>
+                    <a href="{{ url_for('manage_providers_ui') }}" class="inline-block bg-purple-600 hover:bg-purple-700 text-white px-8 py-3 rounded-lg font-medium transition-colors">
+                        Open Provider Management
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message -->
+    <div id="success-message" class="fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded shadow-lg hidden"></div>
+
+    <!-- Error Message -->
+    <div id="error-message" class="fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded shadow-lg hidden"></div>
+
+    <script>
+        // Setup axios with JWT token and token refresh interceptor
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+            window.location.href = '/auth/admin/login';
+        }
+        
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        
+        // Setup token refresh interceptor
+        axios.interceptors.response.use(
+            response => response,
+            async error => {
+                const originalRequest = error.config;
+                
+                // If 401 and we haven't retried yet
+                if (error.response?.status === 401 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+                    
+                    const refreshToken = localStorage.getItem('refresh_token');
+                    if (!refreshToken) {
+                        // No refresh token, redirect to login
+                        window.location.href = '/auth/admin/login';
+                        return Promise.reject(error);
+                    }
+                    
+                    try {
+                        // Call refresh endpoint
+                        const refreshResponse = await axios.post('/auth/refresh-token', {
+                            refresh_token: refreshToken
+                        }, {
+                            // Don't use the interceptor for the refresh call itself
+                            _skipInterceptor: true
+                        });
+                        
+                        // Store new tokens
+                        const { access_token, id_token } = refreshResponse.data;
+                        localStorage.setItem('access_token', access_token);
+                        localStorage.setItem('id_token', id_token);
+                        
+                        // Update Authorization header
+                        axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+                        originalRequest.headers['Authorization'] = `Bearer ${access_token}`;
+                        
+                        // Retry original request
+                        return axios(originalRequest);
+                    } catch (refreshError) {
+                        // Refresh failed, redirect to login
+                        console.error('Token refresh failed:', refreshError);
+                        localStorage.removeItem('access_token');
+                        localStorage.removeItem('id_token');
+                        localStorage.removeItem('refresh_token');
+                        window.location.href = '/auth/admin/login';
+                        return Promise.reject(refreshError);
+                    }
+                }
+                
+                return Promise.reject(error);
+            }
+        );
+
+        // Tab switching
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const tab = this.dataset.tab;
+                
+                // Update button states
+                document.querySelectorAll('.tab-button').forEach(b => {
+                    b.classList.remove('border-purple-600', 'text-purple-600');
+                    b.classList.add('border-transparent', 'text-gray-600');
+                });
+                this.classList.add('border-purple-600', 'text-purple-600');
+                this.classList.remove('border-transparent', 'text-gray-600');
+                
+                // Update content visibility
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+                document.getElementById(`tab-${tab}`).classList.remove('hidden');
+                
+                // Load content if needed
+                if (tab === 'users') {
+                    loadUsers();
+                } else if (tab === 'invitations') {
+                    loadInvitations();
+                } else if (tab === 'bucket-requests') {
+                    loadBucketRequests();
+                }
+            });
+        });
+
+        // Bucket request filter
+        document.querySelectorAll('.request-filter').forEach(button => {
+            button.addEventListener('click', function() {
+                document.querySelectorAll('.request-filter').forEach(b => {
+                    b.classList.remove('border-purple-600', 'text-purple-600');
+                    b.classList.add('border-transparent', 'text-gray-600');
+                });
+                this.classList.add('border-purple-600', 'text-purple-600');
+                this.classList.remove('border-transparent', 'text-gray-600');
+                
+                currentRequestFilter = this.dataset.filter;
+                loadBucketRequests();
+            });
+        });
+
+        // Show message
+        function showMessage(message, isError = false) {
+            const element = isError ? document.getElementById('error-message') : document.getElementById('success-message');
+            element.textContent = message;
+            element.classList.remove('hidden');
+            setTimeout(() => element.classList.add('hidden'), 4000);
+        }
+
+        // Load stats
+        async function loadStats() {
+            try {
+                const response = await axios.get('/admin/stats');
+                document.getElementById('total-users').textContent = response.data.total_users;
+                document.getElementById('active-users').textContent = response.data.active_users;
+                document.getElementById('inactive-users').textContent = response.data.inactive_users;
+                document.getElementById('pending-invitations').textContent = response.data.pending_invitations;
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+
+        // Load users
+        let currentPage = 1;
+        const perPage = 10;
+
+        async function loadUsers(page = 1) {
+            currentPage = page;
+            try {
+                const search = document.getElementById('search-users').value;
+                const response = await axios.get('/admin/users', {
+                    params: { page, per_page: perPage, search }
+                });
+                
+                const tbody = document.getElementById('users-table-body');
+                tbody.innerHTML = '';
+                
+                if (response.data.users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No users found</td></tr>';
+                    document.getElementById('pagination').innerHTML = '';
+                    return;
+                }
+
+                response.data.users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200 hover:bg-gray-50';
+                    const date = new Date(user.created_at).toLocaleDateString();
+                    const statusClass = user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    const statusText = user.is_active ? 'Active' : 'Inactive';
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm">${user.email}</td>
+                        <td class="px-6 py-4 text-sm">${user.first_name} ${user.last_name}</td>
+                        <td class="px-6 py-4 text-sm">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm">${date}</td>
+                        <td class="px-6 py-4 text-sm flex gap-2">
+                            ${user.is_active ? 
+                                `<button class="text-red-600 hover:text-red-800" onclick="deactivateUser(${user.id})">Deactivate</button>` :
+                                `<button class="text-green-600 hover:text-green-800" onclick="activateUser(${user.id})">Activate</button>`
+                            }
+                            <button class="text-red-600 hover:text-red-800" onclick="removeUser(${user.id})">Remove</button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+
+                // Update pagination
+                const pagination = document.getElementById('pagination');
+                pagination.innerHTML = '';
+                for (let i = 1; i <= response.data.pages; i++) {
+                    const button = document.createElement('button');
+                    button.textContent = i;
+                    button.className = i === page ? 
+                        'px-3 py-1 bg-purple-600 text-white rounded' :
+                        'px-3 py-1 bg-gray-200 text-gray-800 rounded hover:bg-gray-300';
+                    button.onclick = () => loadUsers(i);
+                    pagination.appendChild(button);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+            }
+        }
+
+        // Load invitations
+        async function loadInvitations() {
+            try {
+                const response = await axios.get('/admin/invitations');
+                const tbody = document.getElementById('invitations-table-body');
+                tbody.innerHTML = '';
+                
+                if (response.data.invitations.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No pending invitations</td></tr>';
+                    return;
+                }
+
+                response.data.invitations.forEach(inv => {
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200 hover:bg-gray-50';
+                    const createdDate = new Date(inv.created_at).toLocaleDateString();
+                    const expiresDate = new Date(inv.expires_at).toLocaleDateString();
+                    const statusClass = inv.is_expired ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800';
+                    const statusText = inv.is_used ? 'Used' : (inv.is_expired ? 'Expired' : 'Pending');
+                    
+                    row.innerHTML = `
+                        <td class="px-6 py-4 text-sm">${inv.email}</td>
+                        <td class="px-6 py-4 text-sm">${createdDate}</td>
+                        <td class="px-6 py-4 text-sm">${expiresDate}</td>
+                        <td class="px-6 py-4 text-sm">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${statusClass}">
+                                ${statusText}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-sm flex gap-2">
+                            ${!inv.is_used && !inv.is_expired ?
+                                `<button class="text-blue-600 hover:text-blue-800" onclick="resendInvitation(${inv.id})">Resend</button>
+                                <button class="text-red-600 hover:text-red-800" onclick="cancelInvitation(${inv.id})">Cancel</button>` :
+                                '<span class="text-gray-500">-</span>'
+                            }
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error loading invitations:', error);
+                showMessage('Error loading invitations', true);
+            }
+        }
+
+        // Send invitation
+        document.getElementById('invite-button').addEventListener('click', async function() {
+            const email = document.getElementById('invite-email').value.trim();
+            if (!email) {
+                showMessage('Please enter an email address', true);
+                return;
+            }
+
+            try {
+                await axios.post('/admin/invitations', { email });
+                showMessage('Invitation sent successfully!');
+                document.getElementById('invite-email').value = '';
+                loadStats();
+                loadInvitations();
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error sending invitation', true);
+            }
+        });
+
+        // Search users
+        document.getElementById('search-users').addEventListener('input', () => {
+            loadUsers(1);
+        });
+
+        // Deactivate user
+        async function deactivateUser(userId) {
+            if (!confirm('Are you sure you want to deactivate this user?')) return;
+            try {
+                await axios.post(`/admin/users/${userId}/deactivate`);
+                showMessage('User deactivated successfully!');
+                loadStats();
+                loadUsers(currentPage);
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error deactivating user', true);
+            }
+        }
+
+        // Activate user
+        async function activateUser(userId) {
+            try {
+                await axios.post(`/admin/users/${userId}/activate`);
+                showMessage('User activated successfully!');
+                loadStats();
+                loadUsers(currentPage);
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error activating user', true);
+            }
+        }
+
+        // Remove user
+        async function removeUser(userId) {
+            if (!confirm('Are you sure you want to remove this user from your management?')) return;
+            try {
+                await axios.delete(`/admin/users/${userId}/remove`);
+                showMessage('User removed successfully!');
+                loadStats();
+                loadUsers(currentPage);
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error removing user', true);
+            }
+        }
+
+        // Resend invitation
+        async function resendInvitation(invitationId) {
+            try {
+                await axios.post(`/admin/invitations/${invitationId}/resend`);
+                showMessage('Invitation resent successfully!');
+                loadInvitations();
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error resending invitation', true);
+            }
+        }
+
+        // Cancel invitation
+        async function cancelInvitation(invitationId) {
+            if (!confirm('Are you sure you want to cancel this invitation?')) return;
+            try {
+                await axios.delete(`/admin/invitations/${invitationId}`);
+                showMessage('Invitation cancelled successfully!');
+                loadInvitations();
+                loadStats();
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error cancelling invitation', true);
+            }
+        }
+
+        // Bucket requests
+        let currentRequestFilter = 'pending';
+
+        async function loadBucketRequests() {
+            try {
+                const response = await axios.get('/admin/buckets/requests');
+                const container = document.getElementById('bucket-requests-container');
+                const requests = response.data.requests || [];
+                
+                // Update counts
+                const pending = requests.filter(r => r.status === 'pending').length;
+                const approved = requests.filter(r => r.status === 'approved').length;
+                const rejected = requests.filter(r => r.status === 'rejected').length;
+                
+                document.getElementById('pending-count').textContent = pending;
+                document.getElementById('approved-count').textContent = approved;
+                document.getElementById('rejected-count').textContent = rejected;
+
+                // Filter requests
+                const filtered = requests.filter(r => r.status === currentRequestFilter);
+
+                if (filtered.length === 0) {
+                    container.innerHTML = `<div class="text-center py-12 text-gray-500">No ${currentRequestFilter} requests</div>`;
+                    return;
+                }
+
+                container.innerHTML = '';
+                filtered.forEach(request => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-6 rounded-lg shadow border-l-4 ' + 
+                        (request.status === 'pending' ? 'border-yellow-500' :
+                         request.status === 'approved' ? 'border-green-500' : 'border-red-500');
+                    
+                    const statusBadge = 
+                        request.status === 'pending' ? '<span class="px-3 py-1 bg-yellow-100 text-yellow-800 rounded text-sm">Pending</span>' :
+                        request.status === 'approved' ? '<span class="px-3 py-1 bg-green-100 text-green-800 rounded text-sm">Approved</span>' :
+                        '<span class="px-3 py-1 bg-red-100 text-red-800 rounded text-sm">Rejected</span>';
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <h3 class="text-lg font-bold">${request.bucket_name}</h3>
+                                <p class="text-gray-600 text-sm">From: ${request.user_email}</p>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-4 mb-4 py-4 border-y border-gray-200">
+                            <div>
+                                <p class="text-gray-600 text-sm">Provider</p>
+                                <p class="font-medium">${request.provider_name}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 text-sm">Type</p>
+                                <p class="font-medium capitalize">${request.request_type}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-600 text-sm">Date</p>
+                                <p class="font-medium">${new Date(request.created_at).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+
+                        ${request.admin_notes ? `<div class="bg-blue-50 p-3 rounded mb-4"><p class="text-sm text-blue-900"><strong>Notes:</strong> ${request.admin_notes}</p></div>` : ''}
+                        
+                        ${request.policy ? `
+                            <div class="bg-green-50 p-3 rounded mb-4">
+                                <p class="text-sm text-green-900"><strong>✓ Policy Attached</strong></p>
+                                <p class="text-xs text-green-700 mt-1">
+                                    ${request.policy.expires_at ? `Expires: ${new Date(request.policy.expires_at).toLocaleDateString()}` : 'No expiration'}
+                                </p>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex gap-2">
+                            ${request.status === 'pending' ? `
+                                <button class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded" onclick="approveRequest(${request.id})">
+                                    Approve
+                                </button>
+                                <button class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 rounded" onclick="rejectRequest(${request.id})">
+                                    Reject
+                                </button>
+                            ` : request.policy ? `
+                                <button class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded" onclick="viewPolicyModal(${request.policy.id})">
+                                    View Policy
+                                </button>
+                            ` : ''}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (error) {
+                console.error('Error loading bucket requests:', error);
+                document.getElementById('bucket-requests-container').innerHTML = '<div class="text-red-500">Error loading requests</div>';
+            }
+        }
+
+        async function approveRequest(requestId) {
+            try {
+                // Fetch the request details to get request_type
+                const response = await axios.get('/admin/buckets/requests');
+                const request = response.data.requests.find(r => r.id === requestId);
+                
+                if (!request) {
+                    showMessage('Request not found', true);
+                    return;
+                }
+
+                // For GET/UPDATE/DELETE requests, approve directly without modal
+                if (request.request_type !== 'create') {
+                    submitPermissionApproval(requestId, null, true, request.request_type);
+                } else {
+                    // For CREATE requests only, show permission preset modal
+                    showPermissionPresetModal(requestId);
+                }
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error loading request details', true);
+            }
+        }
+
+        function showPermissionPresetModal(requestId) {
+            // Show modal with checkboxes for permission selection
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                    <div class="px-6 py-4 border-b">
+                        <h3 class="text-lg font-bold">Select Permissions for Bucket</h3>
+                    </div>
+                    <div class="px-6 py-4">
+                        <div class="mb-4">
+                            <p class="text-sm text-gray-600 mb-3">Choose which actions the user can perform:</p>
+                            <div class="space-y-3">
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="perm-upload" class="mr-3 w-4 h-4">
+                                    <span class="text-gray-700 font-medium">📤 Upload</span>
+                                    <span class="text-xs text-gray-500 ml-2">(Put/Upload files)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="perm-download" class="mr-3 w-4 h-4">
+                                    <span class="text-gray-700 font-medium">📥 Download</span>
+                                    <span class="text-xs text-gray-500 ml-2">(Get/Read files)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="perm-delete" class="mr-3 w-4 h-4">
+                                    <span class="text-gray-700 font-medium">🗑️ Delete</span>
+                                    <span class="text-xs text-gray-500 ml-2">(Delete files)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" name="perm-list" class="mr-3 w-4 h-4">
+                                    <span class="text-gray-700 font-medium">📋 List</span>
+                                    <span class="text-xs text-gray-500 ml-2">(View bucket contents)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
+                            <p><strong>Presets:</strong></p>
+                            <p class="text-xs mt-1">• <strong>Upload Only:</strong> Upload + List</p>
+                            <p class="text-xs">• <strong>Download Only:</strong> Download + List</p>
+                            <p class="text-xs">• <strong>Read & Write:</strong> Download + Upload + List</p>
+                            <p class="text-xs">• <strong>Full Access:</strong> All permissions</p>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 bg-gray-50 flex gap-3 rounded-b-lg">
+                        <button onclick="this.closest('.fixed').remove()" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+                        <button onclick="submitCheckboxApproval(${requestId}, this.closest('.fixed'))" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function submitCheckboxApproval(requestId, modalElement) {
+            const permissions = [];
+            
+            if (modalElement.querySelector('input[name="perm-upload"]').checked) {
+                permissions.push('write');
+            }
+            if (modalElement.querySelector('input[name="perm-download"]').checked) {
+                permissions.push('read');
+            }
+            if (modalElement.querySelector('input[name="perm-delete"]').checked) {
+                permissions.push('delete');
+            }
+            if (modalElement.querySelector('input[name="perm-list"]').checked) {
+                permissions.push('list');
+            }
+            
+            if (permissions.length === 0) {
+                showMessage('❌ Please select at least one permission', true);
+                return;
+            }
+            
+            submitPermissionApprovalWithActions(requestId, permissions);
+            modalElement.remove();
+        }
+
+        async function submitPermissionApprovalWithActions(requestId, actions) {
+            try {
+                await axios.post(`/admin/buckets/request/${requestId}/approve`, {
+                    custom_actions: actions,
+                    admin_notes: 'Approved'
+                });
+                showMessage('Request approved successfully!');
+                loadBucketRequests();
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error approving request', true);
+            }
+        }
+
+        async function submitPermissionApproval(requestId, permissionData, isNonCreate, requestType) {
+            try {
+                let payload = {};
+                
+                if (isNonCreate) {
+                    // For GET/UPDATE/DELETE: map request type to specific action
+                    const actionMap = {
+                        'get': ['read', 'list'],
+                        'update': ['write', 'list'],
+                        'delete': ['delete', 'list']
+                    };
+                    
+                    payload = { 
+                        custom_actions: actionMap[requestType] || [],
+                        admin_notes: 'Approved' 
+                    };
+                } else {
+                    // For CREATE: use the preset selection
+                    payload = { 
+                        permission_preset: permissionData, 
+                        admin_notes: 'Approved' 
+                    };
+                }
+                
+                await axios.post(`/admin/buckets/request/${requestId}/approve`, payload);
+                showMessage('Request approved successfully!');
+                loadBucketRequests();
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error approving request', true);
+            }
+        }
+
+        async function rejectRequest(requestId) {
+            const reason = prompt('Enter rejection reason:');
+            if (!reason) return;
+
+            try {
+                await axios.post(`/admin/buckets/request/${requestId}/reject`, {
+                    reason: reason
+                });
+                showMessage('Request rejected successfully!');
+                loadBucketRequests();
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error rejecting request', true);
+            }
+        }
+
+        async function viewPolicyModal(policyId) {
+            try {
+                const response = await axios.get(`/admin/buckets/policy/${policyId}`);
+                const policy = response.data.policy;
+                
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto';
+                modal.innerHTML = `
+                    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 my-8">
+                        <div class="px-6 py-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-900">IAM Policy Details</h3>
+                                    <p class="text-sm text-gray-600 mt-1">${policy.bucket_name} • ${policy.provider_name}</p>
+                                </div>
+                                <button onclick="this.closest('.fixed').remove()" class="text-gray-500 hover:text-gray-700 text-2xl leading-none">&times;</button>
+                            </div>
+                        </div>
+                        
+                        <div class="px-6 py-4 space-y-6">
+                            <!-- User & Bucket Info -->
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-gray-600 text-sm">User Email</p>
+                                    <p class="font-medium text-lg">${policy.user_email}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 text-sm">Provider</p>
+                                    <p class="font-medium text-lg">${policy.provider_name}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 text-sm">Bucket Name</p>
+                                    <p class="font-medium text-lg">${policy.bucket_name}</p>
+                                </div>
+                                <div>
+                                    <p class="text-gray-600 text-sm">Created</p>
+                                    <p class="font-medium text-lg">${new Date(policy.created_at).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Status -->
+                            <div class="border-t pt-4">
+                                <p class="text-gray-600 text-sm font-medium mb-2">Status</p>
+                                <div class="flex gap-2">
+                                    <span class="px-3 py-1 ${policy.is_applied ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'} rounded text-sm">
+                                        ${policy.is_applied ? '✓ Applied' : '⏳ Pending'}
+                                    </span>
+                                    <span class="px-3 py-1 ${policy.is_expired ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'} rounded text-sm">
+                                        ${policy.is_expired ? '⚠️ Expired' : policy.expires_at ? `Expires: ${new Date(policy.expires_at).toLocaleDateString()}` : '∞ No Expiration'}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <!-- Permissions -->
+                            <div class="border-t pt-4">
+                                <p class="text-gray-600 text-sm font-medium mb-3">Granted Permissions</p>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div class="p-3 rounded border ${policy.action_categories.read ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}">
+                                        <p class="text-sm font-medium">${policy.action_categories.read ? '✓' : '✗'} Read/Download</p>
+                                        <p class="text-xs text-gray-600">Get, retrieve objects</p>
+                                    </div>
+                                    <div class="p-3 rounded border ${policy.action_categories.write ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}">
+                                        <p class="text-sm font-medium">${policy.action_categories.write ? '✓' : '✗'} Write/Upload</p>
+                                        <p class="text-xs text-gray-600">Put, create objects</p>
+                                    </div>
+                                    <div class="p-3 rounded border ${policy.action_categories.delete ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}">
+                                        <p class="text-sm font-medium">${policy.action_categories.delete ? '✓' : '✗'} Delete</p>
+                                        <p class="text-xs text-gray-600">Remove objects</p>
+                                    </div>
+                                    <div class="p-3 rounded border ${policy.action_categories.list ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}">
+                                        <p class="text-sm font-medium">${policy.action_categories.list ? '✓' : '✗'} List</p>
+                                        <p class="text-xs text-gray-600">View bucket contents</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Raw Actions -->
+                            <div class="border-t pt-4">
+                                <p class="text-gray-600 text-sm font-medium mb-2">Cloud Provider Actions</p>
+                                <div class="bg-gray-50 p-3 rounded text-xs font-mono overflow-x-auto max-h-40 overflow-y-auto">
+                                    ${policy.actions.map(a => `<div class="text-gray-700 break-all">• ${a}</div>`).join('')}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="px-6 py-4 bg-gray-50 flex gap-3 rounded-b-lg border-t">
+                            <button onclick="this.closest('.fixed').remove()" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">Close</button>
+                            <button onclick="copyPolicyJSON('${policyId}')" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Copy Policy JSON</button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            } catch (error) {
+                showMessage(error.response?.data?.error || 'Error fetching policy details', true);
+            }
+        }
+
+        function copyPolicyJSON(policyId) {
+            axios.get(`/admin/buckets/policy/${policyId}`).then(response => {
+                const policy = response.data.policy;
+                const jsonStr = JSON.stringify(policy.policy_document, null, 2);
+                navigator.clipboard.writeText(jsonStr).then(() => {
+                    showMessage('Policy JSON copied to clipboard!');
+                }).catch(() => {
+                    showMessage('Failed to copy', true);
+                });
+            });
+        }
+
+        // Handle logout - clear tokens from localStorage
+        function handleLogout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('id_token');
+            localStorage.removeItem('refresh_token');
+            console.log('✅ Tokens cleared from localStorage');
+            // Form will submit normally after tokens are cleared
+        }
+
+        // Initial load
+        window.addEventListener('load', () => {
+            loadStats();
+            loadUsers();
+        });
+    </script>
+</body>
+</html>

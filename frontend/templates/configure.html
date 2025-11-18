@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Configure Storage - File Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto py-8">
+        <h1 class="text-3xl font-bold mb-8 text-center">Configure Storage Settings</h1>
+        
+        {% if session.get('authenticated') %}
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="text-center mb-6">
+                <p class="text-green-600 font-semibold">✓ Currently configured:</p>
+                <p class="text-gray-800 text-lg">Provider: {{ session.get('provider_type', 'AWS S3').upper() }}</p>
+                <p class="text-gray-800 text-lg">Bucket: {{ session.get('bucket') }}</p>
+            </div>
+            <div class="flex justify-between">
+                <a href="{{ url_for('index') }}" 
+                   class="bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700">
+                    Back to Files
+                </a>
+                <a href="{{ url_for('logout') }}" 
+                   class="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700">
+                    Logout
+                </a>
+            </div>
+        </div>
+        {% endif %}
+        
+        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+            <form id="configForm" action="{{ url_for('configure_storage') }}" method="POST" class="space-y-4">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token else '' }}">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Storage Provider</label>
+                    <select name="provider_type" id="provider_type"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                            onchange="updateProviderFields()">
+                        <optgroup label="Stable Providers">
+                            <option value="aws">Amazon S3 ($23/TB/month) - Production Ready</option>
+                            <option value="gcs">Google Cloud Storage ($20/TB/month) - Production Ready</option>
+                            <option value="cloudflare">Cloudflare R2 ($15/TB/month) - Production Ready</option>
+                            <option value="digitalocean">DigitalOcean Spaces ($5/TB/month) - Production Ready</option>
+                            <option value="hetzner">Hetzner Storage ($6/TB/month) - Production Ready</option>
+                        </optgroup>
+                        <optgroup label="Beta Providers">
+                            <option value="wasabi">Wasabi ($6/TB/month) - Beta</option>
+                            <option value="backblaze">Backblaze B2 ($5/TB/month) - Beta</option>
+                        </optgroup>
+                    </select>
+                </div>
+
+                <!-- AWS S3 and Wasabi Fields -->
+                <div id="aws-wasabi-fields">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700">Access Key ID</label>
+                        <input type="password" name="access_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="relative mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Secret Access Key</label>
+                        <input type="password" name="secret_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" name="bucket" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Backblaze B2 Fields -->
+                <div id="backblaze-fields" class="hidden">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700">Key ID</label>
+                        <input type="password" name="key_id" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="relative mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Application Key</label>
+                        <input type="password" name="application_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" name="bucket_name" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Google Cloud Storage Fields -->
+                <div id="gcs-fields" class="hidden">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700">Project ID</label>
+                        <input type="text" name="project_id" id="project_id"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" name="bucket_name" id="bucket_name"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Service Account JSON</label>
+                        <textarea name="credentials_json" id="credentials_json"
+                                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm h-32"
+                                  placeholder="Paste your service account JSON here"></textarea>
+                    </div>
+                </div>
+
+                <!-- DigitalOcean Spaces Fields -->
+                <div id="digitalocean-fields" class="hidden">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700">Access Key</label>
+                        <input type="password" name="access_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="relative mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Secret Key</label>
+                        <input type="password" name="secret_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" name="bucket" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               pattern="[a-z0-9][a-z0-9.-]{2,62}[a-z0-9]">
+                    </div>
+                </div>
+
+                <!-- Cloudflare R2 Fields -->
+                <div id="cloudflare-fields">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700">Account ID</label>
+                        <input type="text" name="account_id" id="cloudflare_account_id"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               placeholder="e.g., ce7293k0f69z052c67b31fd3f7659e1b">
+                    </div>
+
+                    <div class="relative mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Access Key ID</label>
+                        <input type="password" name="access_key" id="cloudflare_access_key"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="new-password"
+                               placeholder="Your R2 Access Key ID">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="relative mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Secret Access Key</label>
+                        <input type="password" name="secret_key" id="cloudflare_secret_key"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="new-password"
+                               placeholder="Your R2 Secret Access Key">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" name="bucket" id="cloudflare_bucket"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               placeholder="e.g., devops-community">
+                    </div>
+                </div>
+
+                <!-- Hetzner Storage Fields -->
+                <div id="hetzner-fields" class="hidden">
+                    <div class="relative">
+                        <label class="block text-sm font-medium text-gray-700">Access Key</label>
+                        <input type="password" name="access_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="relative mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Secret Key</label>
+                        <input type="password" name="secret_key" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                               autocomplete="off">
+                        <button type="button" 
+                                class="absolute right-2 top-8 text-gray-600 hover:text-gray-800"
+                                onclick="toggleVisibility(this.previousElementSibling)">
+                            👁️
+                        </button>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <label class="block text-sm font-medium text-gray-700">Bucket Name</label>
+                        <input type="text" name="bucket" 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                </div>
+
+                <button type="submit" 
+                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700">
+                    {% if session.get('authenticated') %}
+                        Update Configuration
+                    {% else %}
+                        Save Configuration
+                    {% endif %}
+                </button>
+            </form>
+            <div id="errorMessage" class="mt-4 text-red-600 hidden"></div>
+        </div>
+
+        <!-- Provider Information Cards -->
+        <div class="max-w-4xl mx-auto mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- AWS S3 Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">Amazon S3</h3>
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Stable</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ Most reliable and feature-rich</li>
+                    <li>✓ Global infrastructure</li>
+                    <li>✓ Multiple storage tiers</li>
+                    <li>✗ Higher cost ($23/TB/month)</li>
+                </ul>
+            </div>
+
+            <!-- Wasabi Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">Wasabi</h3>
+                    <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Beta</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ S3-compatible API</li>
+                    <li>✓ No egress fees</li>
+                    <li>✓ 11x9s durability</li>
+                    <li>✓ Low cost ($6/TB/month)</li>
+                </ul>
+            </div>
+
+            <!-- Backblaze Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">Backblaze B2</h3>
+                    <span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded">Beta</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ Lowest cost ($5/TB/month)</li>
+                    <li>✓ Free egress with Cloudflare</li>
+                    <li>✓ Simple pricing</li>
+                    <li>✓ First 10GB free</li>
+                </ul>
+            </div>
+
+            <!-- Google Cloud Storage Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">Google Cloud Storage</h3>
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Stable</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ Integrated with Google services</li>
+                    <li>✓ Multiple storage classes</li>
+                    <li>✓ Strong consistency</li>
+                    <li>✗ Complex pricing ($20/TB/month)</li>
+                </ul>
+            </div>
+
+            <!-- DigitalOcean Spaces Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">DigitalOcean Spaces</h3>
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Stable</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ S3-compatible API</li>
+                    <li>✓ Simple pricing model</li>
+                    <li>✓ Good for DO users</li>
+                    <li>✓ Low cost ($5/TB/month)</li>
+                    <li>✓ Production ready</li>
+                </ul>
+            </div>
+
+            <!-- Cloudflare R2 Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">Cloudflare R2</h3>
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Stable</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ Zero egress fees</li>
+                    <li>✓ Global edge network</li>
+                    <li>✓ S3-compatible API</li>
+                    <li>✓ Competitive pricing ($15/TB/month)</li>
+                </ul>
+            </div>
+
+            <!-- Hetzner Card -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <h3 class="text-lg font-semibold">Hetzner Storage</h3>
+                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Stable</span>
+                </div>
+                <ul class="text-sm space-y-2">
+                    <li>✓ S3-compatible API</li>
+                    <li>✓ European data centers</li>
+                    <li>✓ Low latency in EU</li>
+                    <li>✓ Competitive pricing ($6/TB/month)</li>
+                    <li>✓ Production ready</li>
+                    <li>✓ Global network coverage</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Beta Testing Notice -->
+        <div class="max-w-4xl mx-auto mt-8 bg-yellow-50 border-l-4 border-yellow-400 p-4">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-yellow-800">Beta Provider Notice</h3>
+                    <div class="mt-2 text-sm text-yellow-700">
+                        <p>Providers marked as "Beta" are still being tested and may have limited functionality or occasional issues. For production use, we recommend using the stable providers (AWS S3, Google Cloud Storage, or Cloudflare R2).</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer with GitHub Star -->
+        <div class="max-w-4xl mx-auto mt-8 text-center">
+            <div class="flex flex-col items-center justify-center space-y-4">
+                <p class="text-gray-600">If you like our work, please consider giving us a star!</p>
+                <!-- GitHub Star Button -->
+                <iframe 
+                    src="https://ghbtns.com/github-btn.html?user=rohitg00&repo=s3-file-share-for-free&type=star&count=true&size=large" 
+                    frameborder="0" 
+                    scrolling="0" 
+                    width="170" 
+                    height="30"
+                    title="GitHub"
+                ></iframe>
+                <p class="text-gray-600 mt-4">
+                    Made with <span class="text-red-500">❤️</span> by 
+                    <a href="https://github.com/rohitg00" 
+                       class="text-blue-600 hover:text-blue-800 font-medium"
+                       target="_blank" 
+                       rel="noopener noreferrer">
+                        Rohit Ghumare
+                    </a>
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Get CSRF token from cookie
+        function getCsrfToken() {
+            const name = 'csrf_token=';
+            const decodedCookie = decodeURIComponent(document.cookie);
+            const cookieArray = decodedCookie.split(';');
+            for(let i = 0; i < cookieArray.length; i++) {
+                let cookie = cookieArray[i].trim();
+                if (cookie.indexOf(name) === 0) {
+                    return cookie.substring(name.length, cookie.length);
+                }
+            }
+            return null;
+        }
+
+        // Fetch new CSRF token
+        async function refreshCsrfToken() {
+            try {
+                const response = await fetch('/get-csrf-token');
+                const data = await response.json();
+                return data.csrf_token;
+            } catch (error) {
+                console.error('Error fetching CSRF token:', error);
+                return null;
+            }
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            if (errorDiv) {
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
+                setTimeout(() => {
+                    errorDiv.classList.add('hidden');
+                }, 5000);
+            } else {
+                alert(message);
+            }
+        }
+
+        function toggleVisibility(inputElement) {
+            if (inputElement.type === "password") {
+                inputElement.type = "text";
+            } else {
+                inputElement.type = "password";
+            }
+        }
+
+        function updateProviderFields() {
+            const provider = document.getElementById('provider_type').value;
+            console.log('Selected provider:', provider);
+            
+            const allFields = [
+                'aws-wasabi-fields',
+                'backblaze-fields',
+                'gcs-fields',
+                'digitalocean-fields',
+                'cloudflare-fields',
+                'hetzner-fields'
+            ];
+            
+            // Hide all fields first
+            allFields.forEach(field => {
+                const element = document.getElementById(field);
+                if (element) {
+                    element.classList.add('hidden');
+                    // Clear all inputs in this field group
+                    element.querySelectorAll('input').forEach(input => {
+                        input.value = '';
+                    });
+                }
+            });
+            
+            // Show the relevant fields
+            let fieldsToShow;
+            if (provider === 'aws' || provider === 'wasabi') {
+                fieldsToShow = 'aws-wasabi-fields';
+            } else {
+                fieldsToShow = `${provider}-fields`;
+            }
+            
+            const selectedFields = document.getElementById(fieldsToShow);
+            if (selectedFields) {
+                console.log('Showing fields for:', fieldsToShow);
+                selectedFields.classList.remove('hidden');
+            }
+            
+            // Update form submission handler based on provider
+            const form = document.getElementById('configForm');
+            form.onsubmit = async function(e) {
+                e.preventDefault();
+                
+                try {
+                    // Get CSRF token
+                    const csrfToken = getCsrfToken();
+                    if (!csrfToken) {
+                        throw new Error('CSRF token not found');
+                    }
+                    
+                    // Create form data
+                    const formData = new FormData();
+                    formData.set('csrf_token', csrfToken);
+                    formData.set('provider_type', provider);
+                    
+                    // Get fields based on provider type
+                    let fields;
+                    if (provider === 'aws' || provider === 'wasabi') {
+                        fields = {
+                            'access_key': document.querySelector('#aws-wasabi-fields input[name="access_key"]'),
+                            'secret_key': document.querySelector('#aws-wasabi-fields input[name="secret_key"]'),
+                            'bucket': document.querySelector('#aws-wasabi-fields input[name="bucket"]')
+                        };
+                    } else if (provider === 'cloudflare') {
+                        fields = {
+                            'account_id': document.querySelector('#cloudflare-fields input[name="account_id"]'),
+                            'access_key': document.querySelector('#cloudflare-fields input[name="access_key"]'),
+                            'secret_key': document.querySelector('#cloudflare-fields input[name="secret_key"]'),
+                            'bucket': document.querySelector('#cloudflare-fields input[name="bucket"]')
+                        };
+                    } else if (provider === 'gcs') {
+                        fields = {
+                            'project_id': document.querySelector('#gcs-fields input[name="project_id"]'),
+                            'bucket_name': document.querySelector('#gcs-fields input[name="bucket_name"]'),
+                            'credentials_json': document.querySelector('#gcs-fields textarea[name="credentials_json"]')
+                        };
+                    } else if (provider === 'digitalocean') {
+                        fields = {
+                            'access_key': document.querySelector('#digitalocean-fields input[name="access_key"]'),
+                            'secret_key': document.querySelector('#digitalocean-fields input[name="secret_key"]'),
+                            'bucket': document.querySelector('#digitalocean-fields input[name="bucket"]')
+                        };
+
+                        // Validate and add fields
+                        for (const [key, element] of Object.entries(fields)) {
+                            if (!element) {
+                                console.error(`Field element not found: ${key}`);
+                                throw new Error(`Configuration error: ${key} field not found`);
+                            }
+                            
+                            const value = element.value.trim();
+                            if (!value) {
+                                const label = element.previousElementSibling.textContent;
+                                throw new Error(`${label} is required`);
+                            }
+                            
+                            // Special validation for bucket name
+                            if (key === 'bucket') {
+                                if (!/^[a-z0-9][a-z0-9.-]{2,62}[a-z0-9]$/.test(value)) {
+                                    throw new Error('Invalid bucket name format for DigitalOcean Spaces. Must be 3-63 characters, lowercase letters, numbers, dots, and hyphens only.');
+                                }
+                            }
+                            
+                            formData.append(key, value);
+                        }
+                    } else if (provider === 'backblaze') {
+                        fields = {
+                            'key_id': document.querySelector('#backblaze-fields input[name="key_id"]'),
+                            'application_key': document.querySelector('#backblaze-fields input[name="application_key"]'),
+                            'bucket_name': document.querySelector('#backblaze-fields input[name="bucket_name"]')
+                        };
+                    } else if (provider === 'hetzner') {
+                        fields = {
+                            'access_key': document.querySelector('#hetzner-fields input[name="access_key"]'),
+                            'secret_key': document.querySelector('#hetzner-fields input[name="secret_key"]'),
+                            'bucket': document.querySelector('#hetzner-fields input[name="bucket"]')
+                        };
+                    }
+                    
+                    if (!fields) {
+                        throw new Error('Provider not properly configured');
+                    }
+                    
+                    // Validate and add fields
+                    for (const [key, element] of Object.entries(fields)) {
+                        if (!element) {
+                            console.error(`Field element not found: ${key}`);
+                            throw new Error(`Configuration error: ${key} field not found`);
+                        }
+                        
+                        const value = element.value.trim();
+                        console.log(`Field ${key}:`, value ? 'has value' : 'empty');
+                        
+                        if (!value) {
+                            const label = element.previousElementSibling.textContent;
+                            throw new Error(`${label} is required`);
+                        }
+                        
+                        // Special validation for bucket name
+                        if ((key === 'bucket' || key === 'bucket_name') && !/^[a-zA-Z0-9.\-_]{3,63}$/.test(value)) {
+                            throw new Error('Invalid bucket name format. Bucket names must be between 3 and 63 characters and can only contain letters, numbers, dots, hyphens, and underscores.');
+                        }
+                        
+                        // Special validation for GCS credentials JSON
+                        if (key === 'credentials_json') {
+                            try {
+                                JSON.parse(value);
+                            } catch (e) {
+                                throw new Error('Invalid service account JSON format. Please check your JSON syntax.');
+                            }
+                        }
+                        
+                        formData.set(key, value);
+                    }
+                    
+                    // Log form data (excluding sensitive values)
+                    const formDataDebug = {};
+                    formData.forEach((value, key) => {
+                        formDataDebug[key] = key.includes('key') || key.includes('secret') || key.includes('credentials') ? '[REDACTED]' : value;
+                    });
+                    console.log('Form data being sent:', formDataDebug);
+                    
+                    // Send request
+                    const response = await fetch(form.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': csrfToken
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok || data.error) {
+                        throw new Error(data.error || `Server error: ${response.status}`);
+                    }
+                    
+                    console.log('Configuration successful, redirecting...');
+                    window.location.href = '/';
+                    
+                } catch (error) {
+                    console.error('Error during form submission:', error);
+                    showError(error.message || 'An error occurred while saving the configuration');
+                    
+                    if (error.message.includes('CSRF')) {
+                        await refreshCsrfToken();
+                    }
+                }
+            };
+        }
+
+        // Initialize the form with the correct fields
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Set Cloudflare as the default provider
+            const providerSelect = document.getElementById('provider_type');
+            if (providerSelect) {
+                providerSelect.value = 'cloudflare';
+                updateProviderFields();
+            }
+            
+            // Refresh CSRF token on page load
+            await refreshCsrfToken();
+        });
+    </script>
+</body>
+</html> 

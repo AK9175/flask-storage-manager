@@ -1,0 +1,20 @@
+# Example Terraform variables file
+# Copy this file to terraform.tfvars and update with your values
+
+# Project Configuration
+project_name = "storagemanager"
+aws_region   = "us-west-2"
+
+# Database Configuration
+db_name      = "storagemanagerdb"
+db_username  = "dbadmin"
+db_instance_class = "db.t3.micro"
+
+# Auto Scaling Configuration  
+ec2_instance_type = "t3.micro"
+asg_min_size = 2
+asg_max_size = 6
+asg_desired_capacity = 2
+
+# Cognito Configuration
+cognito_user_pool_name = "storage-manager-users"

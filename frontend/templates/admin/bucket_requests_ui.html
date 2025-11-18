@@ -1,0 +1,455 @@
+{% extends "base.html" %}
+
+{% block title %}Bucket Requests - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Bucket Request Management</h1>
+        <p class="text-gray-600 mt-2">Manage user bucket access requests</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-4 border-b border-gray-200 mb-6">
+        <button onclick="switchTab('pending')" id="tab-pending" class="px-4 py-2 border-b-2 border-purple-600 text-purple-600 font-medium">
+            Pending <span id="pending-badge" class="ml-2 bg-red-500 text-white px-2 py-1 rounded-full text-sm">0</span>
+        </button>
+        <button onclick="switchTab('approved')" id="tab-approved" class="px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900">
+            Approved <span id="approved-badge" class="ml-2 bg-green-500 text-white px-2 py-1 rounded-full text-sm">0</span>
+        </button>
+        <button onclick="switchTab('rejected')" id="tab-rejected" class="px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900">
+            Rejected <span id="rejected-badge" class="ml-2 bg-gray-500 text-white px-2 py-1 rounded-full text-sm">0</span>
+        </button>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading" class="text-center py-12">
+        <div class="inline-block">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        </div>
+        <p class="text-gray-600 mt-4">Loading requests...</p>
+    </div>
+
+    <!-- Requests Container -->
+    <div id="requests-container" class="hidden">
+        <div id="requests-list" class="space-y-4">
+            <!-- Requests will be loaded here -->
+        </div>
+        <div id="empty-state" class="text-center py-12 hidden">
+            <p class="text-gray-600">No requests to display</p>
+        </div>
+    </div>
+</div>
+
+<!-- Approval Modal -->
+<div id="approvalModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-bold">Approve Bucket Request</h3>
+        </div>
+        <div class="px-6 py-4">
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Request Details:</p>
+                <div class="bg-gray-50 p-3 rounded text-sm">
+                    <p><strong>User:</strong> <span id="modal-user-email"></span></p>
+                    <p><strong>Bucket:</strong> <span id="modal-bucket-name"></span></p>
+                    <p><strong>Provider:</strong> <span id="modal-provider-name"></span></p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Permission Preset</label>
+                <select id="permission-preset" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
+                    <option value="download_only">Download Only</option>
+                    <option value="upload_only">Upload Only</option>
+                    <option value="read_write" selected>Read & Write</option>
+                    <option value="full_access">Full Access</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
+                <textarea id="admin-notes" placeholder="Optional notes for the user..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600" rows="3"></textarea>
+            </div>
+
+            <div class="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
+                <p><strong>Actions:</strong> <span id="preset-actions">Read, Write, ListBucket</span></p>
+            </div>
+
+            <div id="iam-validation-note" class="mb-4 p-3 bg-amber-50 rounded text-sm text-amber-700 hidden">
+                <p><strong>⚠️ Note:</strong> For Get, Update, and Delete requests, the system will validate that the user has the required IAM permissions before approving.</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 flex gap-3 rounded-b-lg">
+            <button onclick="closeApprovalModal()" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+            <button onclick="submitApproval()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- Access Permission Modal (for GET/UPDATE/DELETE requests) -->
+<div id="accessPermissionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-bold">Select Bucket Access Permissions</h3>
+        </div>
+        <div class="px-6 py-4">
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Request Details:</p>
+                <div class="bg-gray-50 p-3 rounded text-sm space-y-1">
+                    <p><strong>User:</strong> <span id="modal-user-email-access"></span></p>
+                    <p><strong>Bucket:</strong> <span id="modal-bucket-name-access"></span></p>
+                    <p><strong>Provider:</strong> <span id="modal-provider-name-access"></span></p>
+                    <p><strong>Type:</strong> <span id="modal-request-type-access"></span></p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-3">Select Access Permissions <span class="text-red-500">*</span></label>
+                <div class="space-y-2">
+                    <label class="flex items-center">
+                        <input type="checkbox" name="access-permission" value="read" class="mr-3 w-4 h-4">
+                        <span class="text-gray-700 font-medium">Read</span>
+                        <span class="text-xs text-gray-500 ml-2">(View/Download files)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="access-permission" value="write" class="mr-3 w-4 h-4">
+                        <span class="text-gray-700 font-medium">Write</span>
+                        <span class="text-xs text-gray-500 ml-2">(Upload/Modify files)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="access-permission" value="delete" class="mr-3 w-4 h-4">
+                        <span class="text-gray-700 font-medium">Delete</span>
+                        <span class="text-xs text-gray-500 ml-2">(Remove files)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" name="access-permission" value="list" class="mr-3 w-4 h-4">
+                        <span class="text-gray-700 font-medium">List</span>
+                        <span class="text-xs text-gray-500 ml-2">(View object list)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-700">
+                <p><strong>Note:</strong> Select all permissions the user should have for this bucket. The IAM policy will be created accordingly.</p>
+            </div>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 flex gap-3 rounded-b-lg">
+            <button onclick="closeAccessPermissionModal()" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+            <button onclick="submitAccessPermissionApproval()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Approve</button>
+        </div>
+    </div>
+</div>
+
+<!-- Rejection Modal -->
+<div id="rejectionModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="px-6 py-4 border-b">
+            <h3 class="text-lg font-bold">Reject Bucket Request</h3>
+        </div>
+        <div class="px-6 py-4">
+            <div class="mb-4">
+                <p class="text-sm text-gray-600 mb-2">Rejecting request for:</p>
+                <div class="bg-gray-50 p-3 rounded text-sm">
+                    <p><span id="reject-bucket-name"></span></p>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Rejection Reason</label>
+                <textarea id="rejection-reason" placeholder="Explain why this request is being rejected..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600" rows="4"></textarea>
+            </div>
+        </div>
+        <div class="px-6 py-4 bg-gray-50 flex gap-3 rounded-b-lg">
+            <button onclick="closeRejectionModal()" class="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100">Cancel</button>
+            <button onclick="submitRejection()" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Reject</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let allRequests = [];
+let currentTab = 'pending';
+let currentRequestId = null;
+
+// Permission presets
+const presets = {
+    'download_only': {
+        label: 'Download Only',
+        actions: ['GetObject', 'ListBucket']
+    },
+    'upload_only': {
+        label: 'Upload Only',
+        actions: ['PutObject', 'PutObjectAcl']
+    },
+    'read_write': {
+        label: 'Read & Write',
+        actions: ['GetObject', 'PutObject', 'ListBucket', 'DeleteObject']
+    },
+    'full_access': {
+        label: 'Full Access',
+        actions: ['*']
+    }
+};
+
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // Update tab UI
+    document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+        btn.classList.remove('border-purple-600', 'text-purple-600', 'font-medium');
+        btn.classList.add('border-transparent', 'text-gray-600', 'hover:text-gray-900');
+    });
+    document.getElementById(`tab-${tab}`).classList.add('border-purple-600', 'text-purple-600', 'font-medium');
+    
+    renderRequests();
+}
+
+function loadRequests() {
+    document.getElementById('loading').classList.remove('hidden');
+    document.getElementById('requests-container').classList.add('hidden');
+    
+    axios.get('/admin/buckets/requests')
+        .then(response => {
+            allRequests = response.data.requests || [];
+            updateBadges();
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('requests-container').classList.remove('hidden');
+            renderRequests();
+        })
+        .catch(error => {
+            console.error('Error loading requests:', error);
+            document.getElementById('loading').innerHTML = '<p class="text-red-600">Error loading requests</p>';
+        });
+}
+
+function updateBadges() {
+    const pending = allRequests.filter(r => r.status === 'pending').length;
+    const approved = allRequests.filter(r => r.status === 'approved').length;
+    const rejected = allRequests.filter(r => r.status === 'rejected').length;
+    
+    document.getElementById('pending-badge').textContent = pending;
+    document.getElementById('approved-badge').textContent = approved;
+    document.getElementById('rejected-badge').textContent = rejected;
+}
+
+function renderRequests() {
+    const filtered = allRequests.filter(r => r.status === currentTab);
+    const container = document.getElementById('requests-list');
+    const emptyState = document.getElementById('empty-state');
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+    }
+    
+    emptyState.classList.add('hidden');
+    container.innerHTML = filtered.map(req => createRequestCard(req)).join('');
+}
+
+function createRequestCard(req) {
+    const statusColors = {
+        'pending': 'bg-yellow-100 text-yellow-800',
+        'approved': 'bg-green-100 text-green-800',
+        'rejected': 'bg-red-100 text-red-800'
+    };
+    
+    const actions = req.status === 'pending' ? `
+        <div class="flex gap-2 mt-4">
+            <button onclick="openApprovalModal(${req.id}, '${req.user_email}', '${req.bucket_name}', '${req.provider_name}', '${req.request_type}')" 
+                class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium">
+                Approve
+            </button>
+            <button onclick="openRejectionModal(${req.id}, '${req.bucket_name}')" 
+                class="flex-1 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm font-medium">
+                Reject
+            </button>
+        </div>
+    ` : `
+        <div class="mt-4 p-3 bg-gray-50 rounded">
+            <p class="text-sm text-gray-600"><strong>Admin Notes:</strong></p>
+            <p class="text-sm">${req.admin_notes || 'N/A'}</p>
+        </div>
+    `;
+    
+    return `
+        <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <h3 class="font-semibold text-gray-900">${req.bucket_name}</h3>
+                    <p class="text-sm text-gray-600">${req.provider_name}</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-medium ${statusColors[req.status]}">
+                    ${req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                </span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3 text-sm mb-3">
+                <div>
+                    <p class="text-gray-600">User</p>
+                    <p class="font-medium">${req.user_email}</p>
+                </div>
+                <div>
+                    <p class="text-gray-600">Request Type</p>
+                    <p class="font-medium capitalize">${req.request_type}</p>
+                </div>
+            </div>
+            
+            <p class="text-xs text-gray-500">
+                Submitted: ${new Date(req.created_at).toLocaleDateString()}
+            </p>
+            
+            ${actions}
+        </div>
+    `;
+}
+
+function openApprovalModal(requestId, userEmail, bucketName, providerName, requestType) {
+    currentRequestId = requestId;
+    
+    // For non-create requests, show permission selection modal
+    if (requestType !== 'create') {
+        document.getElementById('modal-user-email-access').textContent = userEmail;
+        document.getElementById('modal-bucket-name-access').textContent = bucketName;
+        document.getElementById('modal-provider-name-access').textContent = providerName;
+        document.getElementById('modal-request-type-access').textContent = requestType.toUpperCase();
+        
+        // Clear all checkboxes
+        document.querySelectorAll('input[name="access-permission"]').forEach(cb => cb.checked = false);
+        
+        // Show the access permission modal
+        document.getElementById('accessPermissionModal').classList.remove('hidden');
+        return;
+    }
+    
+    // For create requests, show the permission preset dialog
+    document.getElementById('modal-user-email').textContent = userEmail;
+    document.getElementById('modal-bucket-name').textContent = bucketName;
+    document.getElementById('modal-provider-name').textContent = providerName;
+    document.getElementById('modal-request-type').textContent = requestType;
+    
+    document.getElementById('approvalModal').classList.remove('hidden');
+    updatePresetDisplay();
+}
+
+function closeApprovalModal() {
+    document.getElementById('approvalModal').classList.add('hidden');
+    currentRequestId = null;
+}
+
+function closeAccessPermissionModal() {
+    document.getElementById('accessPermissionModal').classList.add('hidden');
+    currentRequestId = null;
+    // Clear checkboxes
+    document.querySelectorAll('input[name="access-permission"]').forEach(cb => cb.checked = false);
+}
+
+function submitAccessPermissionApproval() {
+    if (!currentRequestId) return;
+    
+    const selectedPermissions = Array.from(document.querySelectorAll('input[name="access-permission"]:checked'))
+        .map(cb => cb.value);
+    
+    if (selectedPermissions.length === 0) {
+        alert('Please select at least one permission');
+        return;
+    }
+    
+    submitApprovalDirect(currentRequestId, selectedPermissions);
+}
+
+function openRejectionModal(requestId, bucketName) {
+    currentRequestId = requestId;
+    document.getElementById('reject-bucket-name').textContent = bucketName;
+    document.getElementById('rejectionModal').classList.remove('hidden');
+}
+
+function closeRejectionModal() {
+    document.getElementById('rejectionModal').classList.add('hidden');
+    currentRequestId = null;
+}
+
+function updatePresetDisplay() {
+    const preset = document.getElementById('permission-preset').value;
+    const actions = presets[preset]?.actions || [];
+    document.getElementById('preset-actions').textContent = actions.join(', ');
+}
+
+function submitApproval() {
+    if (!currentRequestId) return;
+    
+    const preset = document.getElementById('permission-preset').value;
+    const notes = document.getElementById('admin-notes').value;
+    
+    axios.post(`/admin/buckets/request/${currentRequestId}/approve`, {
+        permission_preset: preset,
+        admin_notes: notes
+    })
+    .then(response => {
+        closeApprovalModal();
+        document.getElementById('admin-notes').value = '';
+        loadRequests();
+    })
+    .catch(error => {
+        const errorMsg = error.response?.data?.error || error.message;
+        const details = error.response?.data?.details || '';
+        const fullMsg = details ? `${errorMsg}\n\n${details}` : errorMsg;
+        alert('Error approving request: ' + fullMsg);
+    });
+}
+
+function submitApprovalDirect(requestId, permissions) {
+    // Approval for non-create requests with selected permissions
+    axios.post(`/admin/buckets/request/${requestId}/approve`, {
+        permission_preset: 'custom',
+        custom_actions: permissions,
+        admin_notes: ''
+    })
+    .then(response => {
+        // Silently approve - no alert
+        document.getElementById('accessPermissionModal').classList.add('hidden');
+        loadRequests();
+    })
+    .catch(error => {
+        const errorMsg = error.response?.data?.error || error.message;
+        const details = error.response?.data?.details || '';
+        const fullMsg = details ? `${errorMsg}\n\n${details}` : errorMsg;
+        alert('Error approving request: ' + fullMsg);
+    });
+}
+
+function submitRejection() {
+    if (!currentRequestId) return;
+    
+    const reason = document.getElementById('rejection-reason').value;
+    if (!reason.trim()) {
+        alert('Please provide a rejection reason');
+        return;
+    }
+    
+    axios.post(`/admin/buckets/request/${currentRequestId}/reject`, {
+        reason: reason
+    })
+    .then(response => {
+        closeRejectionModal();
+        document.getElementById('rejection-reason').value = '';
+        loadRequests();
+    })
+    .catch(error => {
+        alert('Error rejecting request: ' + (error.response?.data?.error || error.message));
+    });
+}
+
+// Update preset display when dropdown changes
+document.addEventListener('DOMContentLoaded', () => {
+    const presetSelect = document.getElementById('permission-preset');
+    if (presetSelect) {
+        presetSelect.addEventListener('change', updatePresetDisplay);
+    }
+    loadRequests();
+    
+    // Refresh every 30 seconds
+    setInterval(loadRequests, 30000);
+});
+</script>
+{% endblock %}

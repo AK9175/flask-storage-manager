@@ -1,0 +1,735 @@
+{% extends "base.html" %}
+
+{% block title %}Bucket Management - User Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Bucket Management</h1>
+        <p class="text-gray-600 mt-2">Request, manage, and access your storage buckets</p>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-4 border-b border-gray-200 mb-6 overflow-x-auto">
+        <button onclick="switchTab('request')" id="tab-request" class="px-4 py-2 border-b-2 border-purple-600 text-purple-600 font-medium whitespace-nowrap">
+            Request Bucket
+        </button>
+        <button onclick="switchTab('requests')" id="tab-requests" class="px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900 whitespace-nowrap">
+            My Requests <span id="requests-badge" class="ml-1 bg-blue-500 text-white px-2 py-0.5 rounded-full text-xs">0</span>
+        </button>
+        <button onclick="switchTab('managed')" id="tab-managed" class="px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-900 whitespace-nowrap">
+            Approved Buckets <span id="managed-badge" class="ml-1 bg-green-500 text-white px-2 py-0.5 rounded-full text-xs">0</span>
+        </button>
+    </div>
+
+    <!-- Tab: Request Bucket -->
+    <div id="tab-content-request" class="tab-content">
+        <div class="bg-white rounded-lg shadow p-6 max-w-2xl">
+            <h2 class="text-xl font-bold mb-4">Request Bucket Action</h2>
+            
+            <form onsubmit="submitBucketRequest(event)" class="space-y-4">
+                <!-- Step 1: Select Provider -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Cloud Storage Provider <span class="text-red-500">*</span></label>
+                    <select id="provider-select" required onchange="handleProviderChange()" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
+                        <option value="">Select a provider...</option>
+                    </select>
+                    <p id="providers-loading" class="text-sm text-gray-600 mt-2">Loading providers...</p>
+                </div>
+
+                <!-- Step 2: Select Request Type/Action -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Request Type <span class="text-red-500">*</span></label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="radio" name="request-type" value="create" checked class="mr-3" onchange="handleRequestTypeChange()">
+                            <span class="text-gray-700">Create new bucket</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="request-type" value="access" class="mr-3" onchange="handleRequestTypeChange()">
+                            <span class="text-gray-700">Request bucket access</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="radio" name="request-type" value="delete" class="mr-3" onchange="handleRequestTypeChange()">
+                            <span class="text-gray-700">Delete bucket</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Step 2b: Select Access Types (Multi-Select Checkboxes) -->
+                <div id="access-types-section" class="space-y-2 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Access Types <span class="text-red-500">*</span></label>
+                    <div class="space-y-2">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="access-type" value="get" class="mr-3">
+                            <span class="text-gray-700">Get/Read</span>
+                            <span class="text-xs text-gray-500 ml-2">(View bucket contents)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="access-type" value="update" class="mr-3">
+                            <span class="text-gray-700">Update/Write</span>
+                            <span class="text-xs text-gray-500 ml-2">(Upload & modify files)</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="access-type" value="delete" class="mr-3">
+                            <span class="text-gray-700">Delete</span>
+                            <span class="text-xs text-gray-500 ml-2">(Remove files)</span>
+                        </label>
+                    </div>
+                    <p class="text-xs text-gray-600">Select one or more access types. You can request multiple permissions at once.</p>
+                </div>
+
+                <!-- Step 3a: Create Bucket - Text Input -->
+                <div id="create-bucket-section" class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">New Bucket Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="new-bucket-name" placeholder="e.g., my-new-bucket" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
+                    <p class="text-xs text-gray-600">Bucket names must be globally unique and follow AWS naming conventions</p>
+                </div>
+
+                <!-- Step 3b: Get/Update/Delete Bucket - Select from Existing -->
+                <div id="select-bucket-section" class="space-y-2 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Select Bucket <span class="text-red-500">*</span></label>
+                    <div class="flex gap-2 items-center">
+                        <select id="existing-bucket-select" disabled class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 disabled:bg-gray-100 disabled:text-gray-500">
+                            <option value="">Select provider first...</option>
+                        </select>
+                        <button type="button" onclick="toggleManualBucketInput()" class="px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium text-sm whitespace-nowrap">
+                            Manual entry
+                        </button>
+                    </div>
+                    <input type="text" id="manual-bucket-name" placeholder="e.g., my-bucket" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 hidden">
+                    <p class="text-xs text-gray-600" id="bucket-select-help">Select from available buckets or enter manually</p>
+                </div>
+
+                <!-- Step 4: Region Selection (Conditional) -->
+                <div id="region-selector" class="space-y-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">AWS Region <span class="text-red-500">*</span></label>
+                    <select id="bucket-region" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600">
+                        <option value="us-east-1">US East (N. Virginia) - us-east-1</option>
+                        <option value="us-east-2">US East (Ohio) - us-east-2</option>
+                        <option value="us-west-1">US West (N. California) - us-west-1</option>
+                        <option value="us-west-2">US West (Oregon) - us-west-2</option>
+                        <option value="ap-south-1">Asia Pacific (Mumbai) - ap-south-1</option>
+                        <option value="ap-northeast-1">Asia Pacific (Tokyo) - ap-northeast-1</option>
+                        <option value="ap-southeast-1">Asia Pacific (Singapore) - ap-southeast-1</option>
+                        <option value="eu-central-1">Europe (Frankfurt) - eu-central-1</option>
+                        <option value="eu-west-1">Europe (Ireland) - eu-west-1</option>
+                    </select>
+                    <p class="text-xs text-gray-600" id="region-help-text">Select the AWS region for this operation</p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded p-4">
+                    <p class="text-sm text-blue-900">
+                        <strong>Note:</strong> Your request will be sent to your administrator for approval. You'll receive a notification once it's processed.
+                    </p>
+                </div>
+
+                <button type="submit" class="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium">
+                    Submit Request
+                </button>
+            </form>
+        </div>
+    </div>    <!-- Tab: My Requests -->
+    <div id="tab-content-requests" class="tab-content hidden">
+        <div id="requests-loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            <p class="text-gray-600 mt-4">Loading requests...</p>
+        </div>
+        
+        <div id="requests-list" class="space-y-4 hidden"></div>
+        
+        <div id="requests-empty" class="text-center py-12 hidden">
+            <p class="text-gray-600">No bucket requests yet</p>
+        </div>
+    </div>
+
+    <!-- Tab: Approved Buckets -->
+    <div id="tab-content-managed" class="tab-content hidden">
+        <div id="managed-loading" class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+            <p class="text-gray-600 mt-4">Loading buckets...</p>
+        </div>
+        
+        <div id="managed-list" class="grid grid-cols-1 md:grid-cols-2 gap-4 hidden"></div>
+        
+        <div id="managed-empty" class="text-center py-12 hidden">
+            <p class="text-gray-600">No approved buckets yet</p>
+        </div>
+    </div>
+</div>
+
+<!-- Success Toast -->
+<div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg hidden z-50"></div>
+
+<script>
+let currentTab = 'request';
+
+function switchTab(tab) {
+    currentTab = tab;
+    
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[id^="tab-"]').forEach(btn => {
+        btn.classList.remove('border-purple-600', 'text-purple-600', 'font-medium');
+        btn.classList.add('border-transparent', 'text-gray-600', 'hover:text-gray-900');
+    });
+    
+    // Show selected tab
+    document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
+    document.getElementById(`tab-${tab}`).classList.add('border-purple-600', 'text-purple-600', 'font-medium');
+    
+    // Load data for specific tabs
+    if (tab === 'requests') {
+        loadUserRequests();
+    } else if (tab === 'managed') {
+        loadManagedBuckets();
+    }
+}
+
+function loadProviders() {
+    axios.get('/user/providers')
+        .then(response => {
+            const providers = response.data.providers || [];
+            const select = document.getElementById('provider-select');
+            
+            select.innerHTML = '<option value="">Select a provider...</option>';
+            providers.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = `${p.display_name} (${p.type})`;
+                select.appendChild(option);
+            });
+            
+            document.getElementById('providers-loading').classList.add('hidden');
+        })
+        .catch(error => {
+            console.error('Error loading providers:', error);
+            document.getElementById('providers-loading').textContent = 'Error loading providers';
+        });
+}
+
+function handleProviderChange() {
+    const providerId = document.getElementById('provider-select').value;
+    const requestType = document.querySelector('input[name="request-type"]:checked').value;
+    
+    if (!providerId) {
+        disableBucketSection();
+        return;
+    }
+    
+    // Load buckets for selected provider
+    const bucketSelect = document.getElementById('existing-bucket-select');
+    bucketSelect.disabled = false;
+    bucketSelect.innerHTML = '<option value="">Loading buckets...</option>';
+    
+    axios.get(`/user/provider/${providerId}/buckets`)
+        .then(response => {
+            const buckets = response.data.buckets || [];
+            
+            bucketSelect.innerHTML = '<option value="">Select a bucket...</option>';
+            
+            if (buckets.length === 0) {
+                bucketSelect.innerHTML = '<option value="">No buckets available</option>';
+                document.getElementById('bucket-select-help').textContent = 'No existing buckets found. Try manual entry.';
+                return;
+            }
+            
+            buckets.forEach(bucket => {
+                const option = document.createElement('option');
+                option.value = bucket;
+                option.textContent = bucket;
+                bucketSelect.appendChild(option);
+            });
+            
+            // Add onchange event to check permissions when bucket is selected
+            bucketSelect.onchange = () => checkExistingPermissions();
+            
+            document.getElementById('bucket-select-help').textContent = 'Select from available buckets or enter manually';
+        })
+        .catch(error => {
+            console.error('Error loading buckets:', error);
+            bucketSelect.innerHTML = '<option value="">Error loading buckets</option>';
+            document.getElementById('bucket-select-help').textContent = 'Error loading buckets. Try manual entry.';
+        });
+}
+
+function handleRequestTypeChange() {
+    const requestType = document.querySelector('input[name="request-type"]:checked').value;
+    const createSection = document.getElementById('create-bucket-section');
+    const selectSection = document.getElementById('select-bucket-section');
+    const accessTypesSection = document.getElementById('access-types-section');
+    const regionSelector = document.getElementById('region-selector');
+    
+    // Reset form
+    document.getElementById('new-bucket-name').value = '';
+    document.getElementById('existing-bucket-select').value = '';
+    document.getElementById('manual-bucket-name').value = '';
+    document.getElementById('manual-bucket-name').classList.add('hidden');
+    
+    // Clear all checkboxes
+    document.querySelectorAll('input[name="access-type"]').forEach(cb => cb.checked = false);
+    
+    if (requestType === 'create') {
+        // Show create bucket input
+        createSection.classList.remove('hidden');
+        selectSection.classList.add('hidden');
+        accessTypesSection.classList.add('hidden');
+        
+        // Region is required for create
+        regionSelector.classList.remove('hidden');
+        document.getElementById('region-help-text').textContent = 'Select the region where the bucket will be created';
+        document.getElementById('bucket-region').required = true;
+    } else if (requestType === 'access') {
+        // Show select bucket dropdown and access type checkboxes
+        createSection.classList.add('hidden');
+        selectSection.classList.remove('hidden');
+        accessTypesSection.classList.remove('hidden');
+        
+        // Load existing buckets when switching to access type
+        const providerId = document.getElementById('provider-select').value;
+        if (providerId) {
+            handleProviderChange();
+        }
+        
+        // Region is required for all operations
+        regionSelector.classList.remove('hidden');
+        document.getElementById('bucket-region').required = true;
+        document.getElementById('region-help-text').textContent = 'Select the region where the bucket is located';
+    } else if (requestType === 'delete') {
+        // Show select bucket dropdown only (no access types)
+        createSection.classList.add('hidden');
+        selectSection.classList.remove('hidden');
+        accessTypesSection.classList.add('hidden');
+        
+        // Load existing buckets
+        const providerId = document.getElementById('provider-select').value;
+        if (providerId) {
+            handleProviderChange();
+        }
+        
+        // Region is required
+        regionSelector.classList.remove('hidden');
+        document.getElementById('bucket-region').required = true;
+        document.getElementById('region-help-text').textContent = 'Select the region of the bucket to delete';
+    }
+}
+
+function disableBucketSection() {
+    const bucketSelect = document.getElementById('existing-bucket-select');
+    bucketSelect.disabled = true;
+    bucketSelect.innerHTML = '<option value="">Select provider first...</option>';
+    document.getElementById('bucket-select-help').textContent = 'Select a provider first';
+}
+
+function toggleManualBucketInput() {
+    const bucketSelect = document.getElementById('existing-bucket-select');
+    const bucketInput = document.getElementById('manual-bucket-name');
+    
+    if (bucketInput.classList.contains('hidden')) {
+        // Show manual input, hide dropdown
+        bucketInput.classList.remove('hidden');
+        bucketSelect.style.display = 'none';
+        document.getElementById('bucket-select-help').textContent = 'Enter the bucket name manually';
+    } else {
+        // Show dropdown, hide manual input
+        bucketInput.classList.add('hidden');
+        bucketSelect.style.display = '';
+        document.getElementById('bucket-select-help').textContent = 'Select from available buckets or enter manually';
+    }
+}
+
+function submitBucketRequest(event) {
+    event.preventDefault();
+    
+    const providerId = document.getElementById('provider-select').value;
+    const requestType = document.querySelector('input[name="request-type"]:checked').value;
+    const region = document.getElementById('bucket-region').value;
+    
+    let bucketName = '';
+    let accessTypes = [];
+    
+    if (!providerId) {
+        alert('Please select a provider');
+        return;
+    }
+    
+    if (!region) {
+        alert('Please select a region');
+        return;
+    }
+    
+    // Get bucket name based on request type
+    if (requestType === 'create') {
+        bucketName = document.getElementById('new-bucket-name').value;
+        if (!bucketName) {
+            alert('Please enter a bucket name for the new bucket');
+            return;
+        }
+    } else if (requestType === 'access') {
+        // Get selected access types
+        accessTypes = Array.from(document.querySelectorAll('input[name="access-type"]:checked'))
+            .map(cb => cb.value);
+        
+        if (accessTypes.length === 0) {
+            alert('Please select at least one access type (Get, Update, or Delete)');
+            return;
+        }
+        
+        // Get bucket name from dropdown or manual input
+        const selectElement = document.getElementById('existing-bucket-select');
+        const manualElement = document.getElementById('manual-bucket-name');
+        
+        if (manualElement.classList.contains('hidden')) {
+            // Using dropdown
+            bucketName = selectElement.value;
+            if (!bucketName) {
+                alert('Please select a bucket');
+                return;
+            }
+        } else {
+            // Using manual input
+            bucketName = manualElement.value;
+            if (!bucketName) {
+                alert('Please enter a bucket name');
+                return;
+            }
+        }
+        
+        // Submit separate requests for each selected access type
+        submitAccessRequests(providerId, bucketName, accessTypes, region);
+        return;
+    } else if (requestType === 'delete') {
+        // Get bucket name from dropdown or manual input
+        const selectElement = document.getElementById('existing-bucket-select');
+        const manualElement = document.getElementById('manual-bucket-name');
+        
+        if (manualElement.classList.contains('hidden')) {
+            // Using dropdown
+            bucketName = selectElement.value;
+            if (!bucketName) {
+                alert('Please select a bucket');
+                return;
+            }
+        } else {
+            // Using manual input
+            bucketName = manualElement.value;
+            if (!bucketName) {
+                alert('Please enter a bucket name');
+                return;
+            }
+        }
+    }
+    
+    const actionLabels = {
+        'create': 'Create',
+        'delete': 'Delete'
+    };
+    
+    axios.post('/user/request-bucket', {
+        provider_id: parseInt(providerId),
+        bucket_name: bucketName,
+        request_type: requestType,
+        region: region
+    })
+    .then(response => {
+        showToast(`✓ ${actionLabels[requestType]} request submitted successfully!`);
+        
+        // Reset form
+        document.getElementById('new-bucket-name').value = '';
+        document.getElementById('existing-bucket-select').value = '';
+        document.getElementById('manual-bucket-name').value = '';
+        document.getElementById('provider-select').value = '';
+        document.getElementById('bucket-region').value = 'us-east-1';
+        
+        // Reset to default state
+        document.querySelector('input[name="request-type"][value="create"]').checked = true;
+        handleRequestTypeChange();
+        
+        // Switch to requests tab
+        setTimeout(() => {
+            switchTab('requests');
+        }, 1000);
+    })
+    .catch(error => {
+        alert('Error submitting request: ' + (error.response?.data?.error || error.message));
+    });
+}
+
+// New function to handle multi-select access requests
+function submitAccessRequests(providerId, bucketName, accessTypes, region) {
+    let completed = 0;
+    let failed = 0;
+    
+    accessTypes.forEach(accessType => {
+        axios.post('/user/request-bucket', {
+            provider_id: parseInt(providerId),
+            bucket_name: bucketName,
+            request_type: accessType,
+            region: region
+        })
+        .then(response => {
+            completed++;
+            if (completed + failed === accessTypes.length) {
+                // All requests completed
+                if (failed === 0) {
+                    showToast(`✓ All ${accessTypes.length} access request(s) submitted successfully!`);
+                } else {
+                    showToast(`✓ ${completed} request(s) submitted, ${failed} failed`);
+                }
+                
+                // Reset form
+                document.getElementById('new-bucket-name').value = '';
+                document.getElementById('existing-bucket-select').value = '';
+                document.getElementById('manual-bucket-name').value = '';
+                document.getElementById('provider-select').value = '';
+                document.getElementById('bucket-region').value = 'us-east-1';
+                document.querySelectorAll('input[name="access-type"]').forEach(cb => cb.checked = false);
+                
+                // Reset to default state
+                document.querySelector('input[name="request-type"][value="create"]').checked = true;
+                handleRequestTypeChange();
+                
+                // Switch to requests tab
+                setTimeout(() => {
+                    switchTab('requests');
+                }, 1000);
+            }
+        })
+        .catch(error => {
+            failed++;
+            console.error(`Error submitting ${accessType} request:`, error);
+            if (completed + failed === accessTypes.length) {
+                // All requests completed
+                if (failed === 0) {
+                    showToast(`✓ All ${accessTypes.length} access request(s) submitted successfully!`);
+                } else {
+                    alert(`Some requests failed: ${error.response?.data?.error || error.message}`);
+                }
+            }
+        });
+    });
+}
+
+function toggleRegionSelector() {
+    const requestType = document.querySelector('input[name="request-type"]:checked').value;
+    const regionSelector = document.getElementById('region-selector');
+    if (requestType === 'create') {
+        regionSelector.style.display = 'block';
+    } else {
+        regionSelector.style.display = 'none';
+    }
+}
+
+function toggleRegionSelector() {
+    const requestType = document.querySelector('input[name="request-type"]:checked').value;
+    const regionSelector = document.getElementById('region-selector');
+    if (requestType === 'create') {
+        regionSelector.style.display = 'block';
+    } else {
+        regionSelector.style.display = 'none';
+    }
+}
+
+function loadUserRequests() {
+    document.getElementById('requests-loading').classList.remove('hidden');
+    document.getElementById('requests-list').classList.add('hidden');
+    document.getElementById('requests-empty').classList.add('hidden');
+    
+    axios.get('/user/bucket-requests')
+        .then(response => {
+            const requests = response.data.requests || [];
+            document.getElementById('requests-badge').textContent = requests.length;
+            
+            if (requests.length === 0) {
+                document.getElementById('requests-loading').classList.add('hidden');
+                document.getElementById('requests-empty').classList.remove('hidden');
+                return;
+            }
+            
+            const html = requests.map(req => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <h3 class="font-semibold text-gray-900">${req.bucket_name}</h3>
+                            <p class="text-sm text-gray-600">${req.provider_name}</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-medium ${
+                            req.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            req.status === 'approved' ? 'bg-green-100 text-green-800' :
+                            'bg-red-100 text-red-800'
+                        }">
+                            ${req.status.charAt(0).toUpperCase() + req.status.slice(1)}
+                        </span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-3 text-sm mb-3">
+                        <div>
+                            <p class="text-gray-600">Request Type</p>
+                            <p class="font-medium capitalize">${req.request_type}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">Submitted</p>
+                            <p class="font-medium">${new Date(req.created_at).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                    
+                    ${req.admin_notes ? `
+                        <div class="bg-gray-50 p-3 rounded text-sm">
+                            <p class="text-gray-600 font-medium">Admin Notes:</p>
+                            <p>${req.admin_notes}</p>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+            
+            document.getElementById('requests-list').innerHTML = html;
+            document.getElementById('requests-loading').classList.add('hidden');
+            document.getElementById('requests-list').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error loading requests:', error);
+            document.getElementById('requests-loading').classList.add('hidden');
+            document.getElementById('requests-empty').classList.remove('hidden');
+        });
+}
+
+function loadManagedBuckets() {
+    document.getElementById('managed-loading').classList.remove('hidden');
+    document.getElementById('managed-list').classList.add('hidden');
+    document.getElementById('managed-empty').classList.add('hidden');
+    
+    axios.get('/user/managed-buckets')
+        .then(response => {
+            const buckets = response.data.buckets || [];
+            document.getElementById('managed-badge').textContent = buckets.length;
+            
+            if (buckets.length === 0) {
+                document.getElementById('managed-loading').classList.add('hidden');
+                document.getElementById('managed-empty').classList.remove('hidden');
+                return;
+            }
+            
+            const html = buckets.map(bucket => `
+                <div class="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <h3 class="font-semibold text-gray-900 mb-2">${bucket.bucket_name}</h3>
+                    <p class="text-sm text-gray-600 mb-3">${bucket.provider_name}</p>
+                    
+                    <div class="mb-3">
+                        <p class="text-xs text-gray-600 font-medium mb-2">Allowed Actions:</p>
+                        <div class="flex flex-wrap gap-2">
+                            ${(bucket.allowed_actions || []).map(action => `
+                                <span class="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
+                                    ${action}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <p class="text-xs text-gray-500">
+                        Approved: ${new Date(bucket.created_at).toLocaleDateString()}
+                    </p>
+                </div>
+            `).join('');
+            
+            document.getElementById('managed-list').innerHTML = html;
+            document.getElementById('managed-loading').classList.add('hidden');
+            document.getElementById('managed-list').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error loading buckets:', error);
+            document.getElementById('managed-loading').classList.add('hidden');
+            document.getElementById('managed-empty').classList.remove('hidden');
+        });
+}
+
+function showToast(message) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+    setTimeout(() => {
+        toast.classList.add('hidden');
+    }, 3000);
+}
+
+async function checkExistingPermissions() {
+    const providerId = document.getElementById('provider-select').value;
+    const requestType = document.querySelector('input[name="request-type"]:checked').value;
+    
+    // Only check for access type requests
+    if (requestType !== 'access') {
+        enableAllAccessCheckboxes();
+        return;
+    }
+    
+    const selectElement = document.getElementById('existing-bucket-select');
+    const bucketName = selectElement.value;
+    
+    if (!bucketName || !providerId) {
+        enableAllAccessCheckboxes();
+        return;
+    }
+    
+    try {
+        const response = await axios.get(`/user/bucket/${providerId}/${bucketName}/existing-permissions`);
+        const data = response.data;
+        
+        if (data.success && data.has_access) {
+            const existingActions = data.existing_actions || [];
+            
+            // Disable checkboxes for already-granted permissions
+            document.querySelectorAll('input[name="access-type"]').forEach(checkbox => {
+                const value = checkbox.value;
+                
+                if (existingActions.includes(value)) {
+                    // Disable and add visual feedback
+                    checkbox.disabled = true;
+                    checkbox.checked = false;
+                    checkbox.parentElement.classList.add('opacity-50', 'pointer-events-none');
+                    
+                    // Add "Already granted" text
+                    const label = checkbox.parentElement;
+                    let badge = label.querySelector('.badge-granted');
+                    if (!badge) {
+                        badge = document.createElement('span');
+                        badge.className = 'badge-granted ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded text-xs font-medium';
+                        badge.textContent = '✓ Already granted';
+                        label.appendChild(badge);
+                    }
+                } else {
+                    // Enable
+                    checkbox.disabled = false;
+                    checkbox.parentElement.classList.remove('opacity-50', 'pointer-events-none');
+                    
+                    // Remove badge if exists
+                    const badge = checkbox.parentElement.querySelector('.badge-granted');
+                    if (badge) badge.remove();
+                }
+            });
+        } else {
+            enableAllAccessCheckboxes();
+        }
+    } catch (error) {
+        console.error('Error checking existing permissions:', error);
+        enableAllAccessCheckboxes();
+    }
+}
+
+function enableAllAccessCheckboxes() {
+    document.querySelectorAll('input[name="access-type"]').forEach(checkbox => {
+        checkbox.disabled = false;
+        checkbox.parentElement.classList.remove('opacity-50', 'pointer-events-none');
+        const badge = checkbox.parentElement.querySelector('.badge-granted');
+        if (badge) badge.remove();
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadProviders();
+    loadUserRequests();
+    loadManagedBuckets();
+});
+</script>
+{% endblock %}

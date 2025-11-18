@@ -1,0 +1,43 @@
+# Docker ignore file
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+venv
+.env
+.env.local
+.env.development
+.env.production
+pip-log.txt
+pip-delete-this-directory.txt
+.DS_Store
+.coverage
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+*.md
+.pytest_cache
+.mypy_cache
+.vscode
+.idea
+*.log
+*.pid
+*.seed
+*.cover
+
+# Don't copy these runtime directories - they'll be created or mounted
+instance/
+flask_session/
+emails/
+
+# Don't copy test files
+*test*
+*Test*
+tests/
+test_*/
+*_test.py

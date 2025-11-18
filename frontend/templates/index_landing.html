@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Storage Manager - Welcome</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 min-h-screen">
+    <nav class="bg-white shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-800">Storage Manager</h1>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="{{ url_for('auth.user_login') }}" class="px-4 py-2 text-blue-600 hover:text-blue-700 font-medium">
+                        User Login
+                    </a>
+                    <a href="{{ url_for('auth.admin_login') }}" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium">
+                        Admin
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+            <div>
+                <h2 class="text-4xl font-bold text-gray-900 mb-6">
+                    Unified Cloud Storage Management
+                </h2>
+                <p class="text-xl text-gray-600 mb-6">
+                    Manage multiple cloud storage providers in one place. Support for AWS S3, Google Cloud Storage, Cloudflare R2, and more.
+                </p>
+                <ul class="space-y-4 mb-8">
+                    <li class="flex items-center">
+                        <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-gray-700">Multi-provider support</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-gray-700">Admin-controlled access</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-gray-700">Secure credential storage</span>
+                    </li>
+                    <li class="flex items-center">
+                        <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span class="text-gray-700">User isolation and permissions</span>
+                    </li>
+                </ul>
+                <div class="flex space-x-4">
+                    <a href="{{ url_for('auth.admin_signup') }}" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition">
+                        Get Started as Admin
+                    </a>
+                    <a href="{{ url_for('auth.user_login') }}" class="px-6 py-3 border-2 border-blue-600 text-blue-600 hover:bg-blue-50 rounded-lg font-medium transition">
+                        User Login
+                    </a>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="text-4xl font-bold text-blue-600 mb-2">Multi</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Provider Support</h3>
+                    <p class="text-gray-600">Seamlessly work with AWS S3, Google Cloud, Cloudflare R2, and more.</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="text-4xl font-bold text-purple-600 mb-2">Secure</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Access Control</h3>
+                    <p class="text-gray-600">Admins control who accesses what, with granular permissions.</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="text-4xl font-bold text-green-600 mb-2">Isolated</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">User Spaces</h3>
+                    <p class="text-gray-600">Users work only with resources assigned to them.</p>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="text-4xl font-bold text-red-600 mb-2">Encrypted</div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Credentials</h3>
+                    <p class="text-gray-600">All credentials stored securely server-side.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-20 bg-white rounded-lg shadow-lg p-12">
+            <h3 class="text-2xl font-bold text-gray-900 mb-8 text-center">How It Works</h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div class="text-center">
+                    <div class="bg-blue-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl font-bold text-blue-600">1</span>
+                    </div>
+                    <h4 class="font-semibold text-gray-900 mb-2">Admin Signup</h4>
+                    <p class="text-gray-600">Create an admin account and connect your cloud providers.</p>
+                </div>
+
+                <div class="text-center">
+                    <div class="bg-purple-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl font-bold text-purple-600">2</span>
+                    </div>
+                    <h4 class="font-semibold text-gray-900 mb-2">Invite Users</h4>
+                    <p class="text-gray-600">Send invitations to team members via email.</p>
+                </div>
+
+                <div class="text-center">
+                    <div class="bg-green-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl font-bold text-green-600">3</span>
+                    </div>
+                    <h4 class="font-semibold text-gray-900 mb-2">Grant Access</h4>
+                    <p class="text-gray-600">Set permissions for buckets and operations.</p>
+                </div>
+
+                <div class="text-center">
+                    <div class="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                        <span class="text-2xl font-bold text-red-600">4</span>
+                    </div>
+                    <h4 class="font-semibold text-gray-900 mb-2">Manage Files</h4>
+                    <p class="text-gray-600">Users access their assigned buckets and files.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-gray-400 py-8 mt-20">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2025 Storage Manager. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

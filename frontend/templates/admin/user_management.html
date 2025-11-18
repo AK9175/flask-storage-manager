@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Management - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex">
+        <!-- Sidebar -->
+        <div class="w-64 bg-gray-900 text-white">
+            <div class="p-6">
+                <h1 class="text-2xl font-bold">Admin Portal</h1>
+            </div>
+            <nav class="mt-6">
+                <a href="/admin/dashboard" class="block px-6 py-3 hover:bg-gray-800">Dashboard</a>
+                <a href="{{ url_for('admin_bucket_requests_ui') }}" class="block px-6 py-3 hover:bg-gray-800">Bucket Requests</a>
+                <a href="/admin/users" class="block px-6 py-3 bg-blue-600">User Management</a>
+                <a href="{{ url_for('auth.admin_logout') }}" class="block px-6 py-3 hover:bg-gray-800">Logout</a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1">
+            <div class="bg-white shadow">
+                <div class="px-8 py-6">
+                    <h2 class="text-3xl font-bold text-gray-900">User Management</h2>
+                    <p class="mt-2 text-gray-600">Manage users and their bucket access permissions</p>
+                </div>
+            </div>
+
+            <div class="p-8">
+                <!-- Users Table -->
+                <div class="bg-white rounded-lg shadow">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="text-lg font-semibold">Your Managed Users</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500">Email</th>
+                                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500">Name</th>
+                                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500">Active</th>
+                                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500">Buckets</th>
+                                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500">Requests</th>
+                                    <th class="px-6 py-3 text-left text-sm font-medium text-gray-500">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody" class="divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-4 text-center text-gray-500">Loading...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Details Modal -->
+    <div id="userDetailsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-96 overflow-y-auto">
+            <div class="sticky top-0 bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-xl font-semibold">User Bucket Access</h3>
+                <button onclick="closeUserDetailsModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6">
+                <div id="userDetailsContent" class="space-y-4">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+            </div>
+
+            <div class="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                <button onclick="closeUserDetailsModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Policy Editor Modal -->
+    <div id="policyEditorModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg shadow-lg max-w-2xl w-full mx-4">
+            <div class="bg-gray-50 border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                <h3 class="text-xl font-semibold">Edit Bucket Access</h3>
+                <button onclick="closePolicyEditorModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div>
+                    <p class="text-sm text-gray-600">
+                        <span id="policyBucketName" class="font-medium"></span> on 
+                        <span id="policyProviderName" class="font-medium"></span>
+                    </p>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="actionRead" class="rounded border-gray-300" value="read">
+                        <span class="ml-3 text-sm font-medium text-gray-700">Read</span>
+                        <span class="ml-2 text-xs text-gray-500">(View bucket contents)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="actionWrite" class="rounded border-gray-300" value="write">
+                        <span class="ml-3 text-sm font-medium text-gray-700">Write</span>
+                        <span class="ml-2 text-xs text-gray-500">(Upload/Update files)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="actionDelete" class="rounded border-gray-300" value="delete">
+                        <span class="ml-3 text-sm font-medium text-gray-700">Delete</span>
+                        <span class="ml-2 text-xs text-gray-500">(Remove files)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="checkbox" id="actionList" class="rounded border-gray-300" value="list">
+                        <span class="ml-3 text-sm font-medium text-gray-700">List</span>
+                        <span class="ml-2 text-xs text-gray-500">(View object list)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="bg-gray-50 border-t border-gray-200 px-6 py-4 flex justify-end gap-3">
+                <button onclick="closePolicyEditorModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button onclick="savePolicyChanges()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentEditingPolicy = null;
+
+        // Load managed users on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(loadManagedUsers, 100);
+        });
+
+        async function loadManagedUsers() {
+            try {
+                console.log('Starting to load managed users...');
+                const response = await axios.get('/admin/buckets/managed-users');
+                console.log('Managed users response:', response.data);
+                if (response.data && response.data.success) {
+                    displayUsers(response.data.users || []);
+                } else {
+                    console.warn('Response not successful:', response.data);
+                    displayUsers([]);
+                }
+            } catch (error) {
+                console.error('Error loading users:', error);
+                // Silently fail - just show empty table
+                displayUsers([]);
+            }
+        }
+
+        function displayUsers(users) {
+            const tbody = document.getElementById('usersTableBody');
+            
+            if (users.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">No managed users yet</td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = users.map(user => `
+                <tr>
+                    <td class="px-6 py-4 text-sm text-gray-900">${escapeHtml(user.email)}</td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${escapeHtml(user.full_name)}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="px-2 py-1 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                            ${user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-sm text-gray-600">${user.policy_count}</td>
+                    <td class="px-6 py-4 text-sm">
+                        <span class="text-gray-900">${user.request_count}</span>
+                        <span class="text-yellow-600 ml-1">(${user.pending_requests} pending)</span>
+                    </td>
+                    <td class="px-6 py-4 text-sm">
+                        <button onclick="openUserDetailsModal(${user.id})" class="text-blue-600 hover:text-blue-800 font-medium">
+                            Manage Access
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function openUserDetailsModal(userId) {
+            try {
+                const response = await axios.get(`/admin/buckets/user/${userId}/bucket-access`);
+                if (response.data.success) {
+                    displayUserDetails(response.data);
+                    document.getElementById('userDetailsModal').classList.remove('hidden');
+                } else {
+                    showError(response.data.error || 'Failed to load user details');
+                }
+            } catch (error) {
+                console.error('Error loading user details:', error);
+                showError('Failed to load user details: ' + error.message);
+            }
+        }
+
+        function displayUserDetails(data) {
+            const content = document.getElementById('userDetailsContent');
+            
+            if (data.policies.length === 0) {
+                content.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-gray-600">No bucket access configured for this user</p>
+                    </div>
+                `;
+                return;
+            }
+
+            content.innerHTML = `
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600">
+                        <span class="font-medium">${escapeHtml(data.user_email)}</span>
+                        has access to <span class="font-medium">${data.policies.length}</span> bucket(s)
+                    </p>
+                </div>
+                <div class="space-y-3 max-h-64 overflow-y-auto">
+                    ${data.policies.map(policy => `
+                        <div class="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:bg-gray-50">
+                            <div>
+                                <p class="font-medium text-gray-900">${escapeHtml(policy.bucket_name)}</p>
+                                <p class="text-sm text-gray-600">${escapeHtml(policy.provider_name)}</p>
+                                <div class="mt-2 flex gap-2">
+                                    ${policy.allowed_actions.map(action => `
+                                        <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium capitalize">
+                                            ${action}
+                                        </span>
+                                    `).join('')}
+                                </div>
+                            </div>
+                            <button onclick="openPolicyEditorModal(${policy.id}, '${escapeHtml(policy.bucket_name)}', '${escapeHtml(policy.provider_name)}', ${JSON.stringify(policy.allowed_actions).replace(/"/g, '&quot;')})" 
+                                    class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">
+                                Edit
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function closeUserDetailsModal() {
+            document.getElementById('userDetailsModal').classList.add('hidden');
+        }
+
+        function openPolicyEditorModal(policyId, bucketName, providerName, allowedActions) {
+            currentEditingPolicy = policyId;
+            document.getElementById('policyBucketName').textContent = bucketName;
+            document.getElementById('policyProviderName').textContent = providerName;
+            
+            // Reset all checkboxes
+            document.getElementById('actionRead').checked = false;
+            document.getElementById('actionWrite').checked = false;
+            document.getElementById('actionDelete').checked = false;
+            document.getElementById('actionList').checked = false;
+            
+            // Check the appropriate ones
+            if (allowedActions.includes('read')) document.getElementById('actionRead').checked = true;
+            if (allowedActions.includes('write')) document.getElementById('actionWrite').checked = true;
+            if (allowedActions.includes('delete')) document.getElementById('actionDelete').checked = true;
+            if (allowedActions.includes('list')) document.getElementById('actionList').checked = true;
+            
+            document.getElementById('policyEditorModal').classList.remove('hidden');
+        }
+
+        function closePolicyEditorModal() {
+            document.getElementById('policyEditorModal').classList.add('hidden');
+            currentEditingPolicy = null;
+        }
+
+        async function savePolicyChanges() {
+            const selectedActions = [];
+            if (document.getElementById('actionRead').checked) selectedActions.push('read');
+            if (document.getElementById('actionWrite').checked) selectedActions.push('write');
+            if (document.getElementById('actionDelete').checked) selectedActions.push('delete');
+            if (document.getElementById('actionList').checked) selectedActions.push('list');
+            
+            if (selectedActions.length === 0) {
+                showError('Please select at least one action');
+                return;
+            }
+
+            try {
+                const response = await axios.post(`/admin/buckets/policy/${currentEditingPolicy}/update-actions`, {
+                    actions: selectedActions
+                });
+                
+                if (response.data.success) {
+                    showSuccess('Policy updated successfully');
+                    closePolicyEditorModal();
+                    // Reload user details
+                    const userId = new URL(window.location).searchParams.get('user_id') || 
+                                   document.getElementById('userDetailsContent').parentElement.getAttribute('data-user-id');
+                    loadManagedUsers();
+                } else {
+                    showError(response.data.error || 'Failed to update policy');
+                }
+            } catch (error) {
+                console.error('Error updating policy:', error);
+                showError('Failed to update policy: ' + error.message);
+            }
+        }
+
+        function showError(message) {
+            alert('Error: ' + message);
+        }
+
+        function showSuccess(message) {
+            alert('Success: ' + message);
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+</body>
+</html>
